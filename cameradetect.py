@@ -15,6 +15,27 @@ def get_windows_cameras():
     device_names = graph.get_input_devices()
     return [(i, name) for i, name in enumerate(device_names)]
 
+#I don't know if this works and I'm not planning to install linux to test it, use at your own discretion
+def get_linux_cameras():
+    try:
+        result = subprocess.run(['v4l2-ctl', '--list-devices'], stdout=subprocess.PIPE)
+        output = result.stdout.decode()
+    except FileNotFoundError:
+        print("Please install v4l-utils: sudo apt install v4l-utils")
+        return []
+
+    cameras = []
+    blocks = output.strip().split('\n\n')
+    for block in blocks:
+        lines = block.strip().split('\n')
+        name = lines[0].strip()
+        for line in lines[1:]:
+            match = re.search(r'/dev/video(\d+)', line)
+            if match:
+                index = int(match.group(1))
+                cameras.append((index, name))
+    return cameras
+
 def get_macos_cameras():
     if not shutil.which("ffmpeg"):
         print("ffmpeg is not installed. Install it with: brew install ffmpeg")
@@ -60,10 +81,13 @@ def get_macos_cameras():
         return []
 
 
+
 def detect_cameras():
     system = platform.system()
     if system == "Windows":
         return get_windows_cameras()
+    elif system == "Linux":
+        return get_linux_cameras()
     elif system == "Darwin":
         return get_macos_cameras()
     else:

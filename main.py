@@ -1,19 +1,26 @@
 import cv2
 from cameradetect import detect_cameras
 
-if __name__ == "__main__":
-    cameras = detect_cameras()
-    if cameras:
-        print("\nDetected Cameras:")
-        for index, name in cameras:
-            print(f"[{index}] {name}")
-    else:
-        print("No cameras detected.")
+#make sure no weird stuff happens when trying to input an integer
+def get_int(prompt):
+    while True:
+        try:
+            value = int(input(prompt))
+            return value
+        except ValueError:
+            print("Invalid input. Please enter a valid integer.")
 
+cameras = detect_cameras()
 
-# Open a connection to the default webcam (0 is usually the default)
+if cameras:
+    print("\nDetected Cameras:")
+    for index, name in cameras:
+        print(f"[{index}] {name}")
+else:
+    print("No cameras detected.")
 
-cap = cv2.VideoCapture(2)
+cameraindex = get_int("Please input the camera to use for the live feed: ")
+cap = cv2.VideoCapture(cameraindex)
 
 # Check if the webcam is opened correctly
 if not cap.isOpened():
