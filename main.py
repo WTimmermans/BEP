@@ -1,7 +1,19 @@
 import cv2
+from cameradetect import detect_cameras
+
+if __name__ == "__main__":
+    cameras = detect_cameras()
+    if cameras:
+        print("\nDetected Cameras:")
+        for index, name in cameras:
+            print(f"[{index}] {name}")
+    else:
+        print("No cameras detected.")
+
 
 # Open a connection to the default webcam (0 is usually the default)
-cap = cv2.VideoCapture(0)
+
+cap = cv2.VideoCapture(2)
 
 # Check if the webcam is opened correctly
 if not cap.isOpened():

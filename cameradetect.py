@@ -1,5 +1,4 @@
 import platform
-import cv2
 import subprocess
 import re
 import shutil
@@ -16,7 +15,7 @@ def get_windows_cameras():
     device_names = graph.get_input_devices()
     return [(i, name) for i, name in enumerate(device_names)]
 
-def get_macos_camera_names():
+def get_macos_cameras():
     if not shutil.which("ffmpeg"):
         print("ffmpeg is not installed. Install it with: brew install ffmpeg")
         return []
@@ -65,33 +64,8 @@ def detect_cameras():
     system = platform.system()
     if system == "Windows":
         return get_windows_cameras()
-    elif system == "Linux":
-        return get_linux_cameras()
     elif system == "Darwin":
-        return get_macos_camera_names()
+        return get_macos_cameras()
     else:
         print("Unsupported OS.")
         return []
-
-def show_cameras(cameras):
-    caps = [cv2.VideoCapture(index) for index, _ in cameras]
-    while True:
-        for i, cap in enumerate(caps):
-            ret, frame = cap.read()
-            if ret:
-                cv2.imshow(f"{cameras[i][1]}", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    for cap in caps:
-        cap.release()
-    cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    cameras = detect_cameras()
-    if cameras:
-        print("\nDetected Cameras:")
-        for index, name in cameras:
-            print(f"[{index}] {name}")
-    else:
-        print("No cameras detected.")
