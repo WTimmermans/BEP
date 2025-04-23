@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import platform
 import tkinter as tk
 from tkinter import messagebox
 from cameradetect import detect_cameras
@@ -32,7 +33,12 @@ def start_camera():
     selected_index = selection[0]
     cam_index = cameras[selected_index][0]
 
-    cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
+    #CAP_DSHOW only works in windows, so skip if on mac or linux
+    if platform.system() == 'Windows':
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # For Windows, try DirectShow
+    else:
+        cap = cv2.VideoCapture(0)  # Default for macOS/Linux
+
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
         return
