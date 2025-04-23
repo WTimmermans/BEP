@@ -1,80 +1,71 @@
 import cv2
 import numpy as np
+import tkinter as tk
+from tkinter import messagebox
 from cameradetect import detect_cameras
 
-#load colour values from file:
+# Load colour values
 colourtable = np.load("colourvalues.npz")
 
 def make_mask(frame, colour):
-    HSV = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour+"_upper"])
+    HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour + "_upper"])
     moments = cv2.moments(mask)
 
     if moments["m00"] != 0:
-        #calculate the centroid average of the pixels:
         cx = int(moments["m10"] / moments["m00"])
         cy = int(moments["m01"] / moments["m00"])
     else:
-        cx = 0
-        cy = 0
+        cx, cy = 0, 0
 
     cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1)
     cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy - 10),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-    
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
     return cx, cy, mask, frame
 
-#make sure no weird stuff happens when trying to input an integer
-def get_int(prompt):
-    while True:
-        try:
-            value = int(input(prompt))
-            return value
-        except ValueError:
-            print("Invalid input. Please enter a valid integer.")
+def start_camera():
+    selection = camera_listbox.curselection()
+    if not selection:
+        messagebox.showerror("Error", "Please select a camera.")
+        return
 
-cameras = detect_cameras()
+    selected_index = selection[0]
+    cam_index = cameras[selected_index][0]
 
-if cameras:
-    print("\nDetected Cameras:")
-    for index, name in cameras:
-        print(f"[{index}] {name}")
-else:
-    print("No cameras detected.")
+    cap = cv2.VideoCapture(cam_index)
+    if not cap.isOpened():
+        messagebox.showerror("Error", "Cannot open camera.")
+        return
 
-cameraindex = get_int("Please input the camera to use for the live feed: ")
-print("Opening camera...")
-cap = cv2.VideoCapture(cameraindex)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-print("Opening camera window...")
-# Check if the webcam is opened correctly
-if not cap.isOpened():
-    print("Cannot open camera")
-    exit()
+        _, _, _, frame = make_mask(frame, "orange")
+        _, _, _, frame = make_mask(frame, "green")
 
-# Continuously read frames
-while cap.isOpened():
-    # Read a frame
-    ret, frame = cap.read()
-    #print(frame)
-    cxorange, cyorange, orangemask, frame = make_mask(frame, "orange")
-    cxgreen, cygreen, greenmask, frame = make_mask(frame, "green")
+        cv2.imshow("Live Webcam Feed, press q to close.", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
+    cap.release()
+    cv2.destroyAllWindows()
 
+# Tkinter setup
+root = tk.Tk()
+root.title("Camera Selector")
 
-    # If frame read was not successful, break the loop
-    if not ret:
-        print("Can't receive frame (stream end?). Exiting ...")
-        break
+tk.Label(root, text="Select a camera from the list:").pack(pady=(10, 0))
 
-    # Display the resulting frame
-    cv2.imshow('Live Webcam Feed, press q to close.', frame)
-    #cv2.imshow("Mask",greenmask)
+# Get camera list
+cameras = detect_cameras()  # List of (index, name)
 
-    # Press 'q' to quit the window
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+camera_listbox = tk.Listbox(root, height=6, width=50)
+for i, (index, name) in enumerate(cameras):
+    camera_listbox.insert(tk.END, f"[{index}] {name}")
+camera_listbox.pack(padx=10, pady=10)
+start_button = tk.Button(root, text="Start Camera", command=start_camera)
+start_button.pack(pady=20)
 
-# Release the webcam and close all windows
-cap.release()
-cv2.destroyAllWindows()
+root.mainloop()
