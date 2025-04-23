@@ -32,7 +32,7 @@ def start_camera():
     selected_index = selection[0]
     cam_index = cameras[selected_index][0]
 
-    cap = cv2.VideoCapture(cam_index)
+    cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
         return
