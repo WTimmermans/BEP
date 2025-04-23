@@ -38,7 +38,7 @@ while True:
         break
 
     # Display the resulting frame
-    cv2.imshow('Live Webcam Feed', frame)
+    cv2.imshow('Live Webcam Feed, press q to close.', frame)
 
     # Press 'q' to quit the window
     if cv2.waitKey(1) & 0xFF == ord('q'):
