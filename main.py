@@ -35,9 +35,9 @@ def start_camera():
 
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # For Windows, try DirectShow
+        cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
     else:
-        cap = cv2.VideoCapture(0)  # Default for macOS/Linux
+        cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
 
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
