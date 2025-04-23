@@ -3,7 +3,26 @@ import numpy as np
 from cameradetect import detect_cameras
 
 #load colour values from file:
-colour = np.load("colourvalues.npz")
+colourtable = np.load("colourvalues.npz")
+
+def make_mask(frame, colour):
+    HSV = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour+"_upper"])
+    moments = cv2.moments(mask)
+
+    if moments["m00"] != 0:
+        #calculate the centroid average of the pixels:
+        cx = int(moments["m10"] / moments["m00"])
+        cy = int(moments["m01"] / moments["m00"])
+    else:
+        cx = 0
+        cy = 0
+
+    cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1)
+    cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy - 10),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    
+    return cx, cy, mask, frame
 
 #make sure no weird stuff happens when trying to input an integer
 def get_int(prompt):
@@ -37,22 +56,10 @@ if not cap.isOpened():
 while cap.isOpened():
     # Read a frame
     ret, frame = cap.read()
-    print(frame)
-    
-    #convert frame to HSV
-    HSV = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
-    #put an orange mask over it, colour bounds can be found in colourvalues.npz
-    Orange_mask = cv2.inRange(HSV, colour["orange_lower"], colour["orange_upper"])
-    orangemoments = cv2.moments(Orange_mask)
+    #print(frame)
+    cxorange, cyorange, orangemask, frame = make_mask(frame, "orange")
+    cxgreen, cygreen, greenmask, frame = make_mask(frame, "green")
 
-    if orangemoments["m00"] != 0:
-        #calculate the centroid average of the pixels:
-        cxorange = int(orangemoments["m10"] / orangemoments["m00"])
-        cyorange = int(orangemoments["m01"] / orangemoments["m00"])
-
-        cv2.circle(frame, (cxorange, cyorange), 5, (0, 255, 0), -1)
-        cv2.putText(frame, f"({cxorange},{cyorange})", (cxorange + 10, cyorange - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
 
     # If frame read was not successful, break the loop
@@ -62,8 +69,7 @@ while cap.isOpened():
 
     # Display the resulting frame
     cv2.imshow('Live Webcam Feed, press q to close.', frame)
-    #cv2.imshow("Mask",Orange_mask)
-    #cv2.imshow("And", orangeresult)
+    #cv2.imshow("Mask",greenmask)
 
     # Press 'q' to quit the window
     if cv2.waitKey(1) & 0xFF == ord('q'):
