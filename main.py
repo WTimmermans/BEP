@@ -8,7 +8,19 @@ from cameradetect import detect_cameras
 # Load colour values
 colourtable = np.load("colourvalues.npz")
 
+previous_centroids = {
+    "orange": None,
+    "green": None
+}
+
+locked_centroids = {
+    "orange": None,
+    "green": None
+}
+
 def make_mask(frame, colour):
+    global locked_centroids
+
     HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour + "_upper"])
     moments = cv2.moments(mask)
@@ -19,9 +31,16 @@ def make_mask(frame, colour):
     else:
         cx, cy = 0, 0
 
+    # Draw a line from locked (manually set) centroid to current
+    if locked_centroids[colour] is not None:
+        lx, ly = locked_centroids[colour]
+        cv2.line(frame, (lx, ly), (cx, cy), (255, 0, 0), 2)
+
+    # Mark current centroid
     cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1)
     cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
     return cx, cy, mask, frame
 
 def start_camera():
@@ -48,12 +67,19 @@ def start_camera():
         if not ret:
             break
 
-        _, _, _, frame = make_mask(frame, "orange")
-        _, _, _, frame = make_mask(frame, "green")
+        cx_orange, cy_orange, _, frame = make_mask(frame, "orange")
+        cx_green, cy_green, _, frame = make_mask(frame, "green")
 
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
             break
+        elif key == ord(' '):
+            # On SPACE press, lock the current centroid positions
+            locked_centroids["orange"] = (cx_orange, cy_orange)
+            locked_centroids["green"] = (cx_green, cy_green)
+            print(f"Locked orange at {locked_centroids['orange']}, green at {locked_centroids['green']}")
 
     cap.release()
     cv2.destroyAllWindows()
