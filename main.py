@@ -8,11 +8,6 @@ from cameradetect import detect_cameras
 # Load colour values
 colourtable = np.load("colourvalues.npz")
 
-previous_centroids = {
-    "orange": None,
-    "green": None
-}
-
 locked_centroids = {
     "orange": None,
     "green": None
