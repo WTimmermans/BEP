@@ -4,6 +4,8 @@ import platform
 import tkinter as tk
 from tkinter import messagebox
 from cameradetect import detect_cameras
+import shutil
+
 
 # Load colour values
 colourtable = np.load("colourvalues.npz")
@@ -136,6 +138,8 @@ tk.Label(root, text="Select a camera from the list:").pack(pady=(10, 0))
 
 # Get camera list
 cameras = detect_cameras()  # List of (index, name)
+if platform.system() == "Darwin" and not shutil.which("ffmpeg"):
+    messagebox.showerror("Warning", "ffmpeg is not installed, please install ffmpeg to get camera names.")
 
 camera_listbox = tk.Listbox(root, height=6, width=50)
 for i, (index, name) in enumerate(cameras):
@@ -145,5 +149,3 @@ start_button = tk.Button(root, text="Start Camera", command=start_camera)
 start_button.pack(pady=20)
 
 root.mainloop()
-
-#test
