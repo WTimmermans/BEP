@@ -21,29 +21,17 @@ def make_mask(frame, colour, extra_mask=None):
     HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour + "_upper"])
 
-    # Apply extra circle mask if given
     if extra_mask is not None:
         mask = cv2.bitwise_and(mask, mask, mask=extra_mask)
 
     moments = cv2.moments(mask)
+    cx, cy = 0, 0
 
-    if moments["m00"]  > 2000:
+    if moments["m00"] > 2000:
         cx = int(moments["m10"] / moments["m00"])
         cy = int(moments["m01"] / moments["m00"])
-    else:
-        cx, cy = 0, 0
 
-    # Draw a line from locked centroid to current
-    if locked_centroids[colour] is not None:
-        lx, ly = locked_centroids[colour]
-        cv2.line(frame, (lx, ly), (cx, cy), (255, 0, 0), 2)
-
-    # Mark current centroid
-    cv2.circle(frame, (cx, cy), 5, (255, 0, 0), -1)
-    cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-
-    return cx, cy, mask, frame
+    return cx, cy, mask
 
 def detect_circle(frame):
     # Convert to grayscale
@@ -56,10 +44,10 @@ def detect_circle(frame):
         cv2.HOUGH_GRADIENT,
         dp=1.2,
         minDist=50,
-        param1=50,
-        param2=30,
-        minRadius=1,
-        maxRadius=20
+        param1=70,
+        param2=40,
+        minRadius=5,
+        maxRadius=40
     )
 
     output_circles = []
@@ -68,11 +56,7 @@ def detect_circle(frame):
         circles = np.uint16(np.around(circles))
         for i in circles[0, :]:
             output_circles.append((i[0], i[1], i[2]))  # (x, y, r)
-            # Draw detected circles for visualization
-            cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
-            #cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
-
-    return frame, output_circles
+    return output_circles
 
 
 def start_camera():
@@ -98,27 +82,48 @@ def start_camera():
         ret, frame = cap.read()
         if not ret:
             break
-    
-        frame, circles = detect_circle(frame)
-    
+
+        # Predefine empty masks
+        greenmask = np.zeros(frame.shape[:2], dtype=np.uint8)
+        orangemask = np.zeros(frame.shape[:2], dtype=np.uint8)
+
+        circles = detect_circle(frame)
+
         if circles:
             for (x, y, r) in circles:
-                # Create a mask for just this circle
                 circle_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
-                cv2.circle(circle_mask, (x, y), r, 255, thickness=-1)
-    
-                # Detect colors inside this circle on the full frame
-                cx_orange, cy_orange, orangemask, frame = make_mask(frame, "orange", extra_mask=circle_mask)
-                cx_green, cy_green, greenmask, frame = make_mask(frame, "green", extra_mask=circle_mask)
-    
-                # Optional: Draw center points
-                cv2.circle(frame, (cx_orange, cy_orange), 3, (0, 165, 255), -1)  # Orange dot
-                cv2.circle(frame, (cx_green, cy_green), 3, (0, 255, 0), -1)      # Green dot
-    
+                cv2.circle(circle_mask, (x, y), r, 128, thickness=-1)
+
+                cx_orange, cy_orange, orangemask = make_mask(frame, "orange", extra_mask=circle_mask)
+                cx_green, cy_green, greenmask = make_mask(frame, "green", extra_mask=circle_mask)
+
+                associated = False
+
+                if cx_orange != 0 and cy_orange != 0:
+                    associated = True
+                    if locked_centroids["orange"] is not None:
+                        lx, ly = locked_centroids["orange"]
+                        cv2.line(frame, (lx, ly), (cx_orange, cy_orange), (255, 0, 0), 2)
+                    cv2.circle(frame, (cx_orange, cy_orange), 5, (255, 0, 0), -1)
+                    cv2.putText(frame, f"orange: ({cx_orange},{cy_orange})", (cx_orange + 10, cy_orange - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+                if cx_green != 0 and cy_green != 0:
+                    associated = True
+                    if locked_centroids["green"] is not None:
+                        lx, ly = locked_centroids["green"]
+                        cv2.line(frame, (lx, ly), (cx_green, cy_green), (255, 0, 0), 2)
+                    cv2.circle(frame, (cx_green, cy_green), 5, (255, 0, 0), -1)
+                    cv2.putText(frame, f"green: ({cx_green},{cy_green})", (cx_green + 10, cy_green - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+                if associated:
+                    cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Only draw the circle if associated
+
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-        cv2.imshow("Live Green Mask Feed, press q to close.", greenmask)
-        cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
-    
+        #cv2.imshow("Live Green Mask Feed, press q to close.", greenmask)
+        #cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
+
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
@@ -126,7 +131,7 @@ def start_camera():
             locked_centroids["orange"] = (cx_orange, cy_orange)
             locked_centroids["green"] = (cx_green, cy_green)
             print(f"Locked orange at {locked_centroids['orange']}, green at {locked_centroids['green']}")
-    
+        
 
 
     cap.release()

@@ -1,8 +1,8 @@
 import numpy as np
 
-orange_lower = np.array([0, 100, 200])
-orange_upper = np.array([10, 255, 255])
-green_lower = np.array([86, 80, 50])
+orange_lower = np.array([10, 50, 200])
+orange_upper = np.array([20, 255, 255])
+green_lower = np.array([85, 80, 50])
 green_upper = np.array([95, 255, 150])
 
 np.savez("colourvalues.npz", 
