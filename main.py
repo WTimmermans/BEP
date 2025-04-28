@@ -27,7 +27,7 @@ def make_mask(frame, colour, extra_mask=None):
 
     moments = cv2.moments(mask)
 
-    if moments["m00"] != 0:
+    if moments["m00"]  > 2000:
         cx = int(moments["m10"] / moments["m00"])
         cy = int(moments["m01"] / moments["m00"])
     else:
@@ -39,9 +39,9 @@ def make_mask(frame, colour, extra_mask=None):
         cv2.line(frame, (lx, ly), (cx, cy), (255, 0, 0), 2)
 
     # Mark current centroid
-    cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1)
+    cv2.circle(frame, (cx, cy), 5, (255, 0, 0), -1)
     cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
     return cx, cy, mask, frame
 
@@ -59,7 +59,7 @@ def detect_circle(frame):
         param1=50,
         param2=30,
         minRadius=1,
-        maxRadius=100
+        maxRadius=20
     )
 
     output_circles = []
@@ -70,7 +70,7 @@ def detect_circle(frame):
             output_circles.append((i[0], i[1], i[2]))  # (x, y, r)
             # Draw detected circles for visualization
             cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
-            cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
+            #cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
 
     return frame, output_circles
 
@@ -108,14 +108,16 @@ def start_camera():
                 cv2.circle(circle_mask, (x, y), r, 255, thickness=-1)
     
                 # Detect colors inside this circle on the full frame
-                cx_orange, cy_orange, _, frame = make_mask(frame, "orange", extra_mask=circle_mask)
-                cx_green, cy_green, _, frame = make_mask(frame, "green", extra_mask=circle_mask)
+                cx_orange, cy_orange, orangemask, frame = make_mask(frame, "orange", extra_mask=circle_mask)
+                cx_green, cy_green, greenmask, frame = make_mask(frame, "green", extra_mask=circle_mask)
     
                 # Optional: Draw center points
                 cv2.circle(frame, (cx_orange, cy_orange), 3, (0, 165, 255), -1)  # Orange dot
                 cv2.circle(frame, (cx_green, cy_green), 3, (0, 255, 0), -1)      # Green dot
     
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
+        cv2.imshow("Live Green Mask Feed, press q to close.", greenmask)
+        cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
     
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
