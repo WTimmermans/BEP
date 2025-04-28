@@ -13,11 +13,16 @@ locked_centroids = {
     "green": None
 }
 
-def make_mask(frame, colour):
+def make_mask(frame, colour, extra_mask=None):
     global locked_centroids
 
     HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour + "_upper"])
+
+    # Apply extra circle mask if given
+    if extra_mask is not None:
+        mask = cv2.bitwise_and(mask, mask, mask=extra_mask)
+
     moments = cv2.moments(mask)
 
     if moments["m00"] != 0:
@@ -26,7 +31,7 @@ def make_mask(frame, colour):
     else:
         cx, cy = 0, 0
 
-    # Draw a line from locked (manually set) centroid to current
+    # Draw a line from locked centroid to current
     if locked_centroids[colour] is not None:
         lx, ly = locked_centroids[colour]
         cv2.line(frame, (lx, ly), (cx, cy), (255, 0, 0), 2)
@@ -37,6 +42,36 @@ def make_mask(frame, colour):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
     return cx, cy, mask, frame
+
+def detect_circle(frame):
+    # Convert to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    gray = cv2.medianBlur(gray, 5)
+    
+    circles = cv2.HoughCircles(
+        gray,
+        cv2.HOUGH_GRADIENT,
+        dp=1.2,
+        minDist=50,
+        param1=50,
+        param2=30,
+        minRadius=1,
+        maxRadius=100
+    )
+
+    output_circles = []
+
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        for i in circles[0, :]:
+            output_circles.append((i[0], i[1], i[2]))  # (x, y, r)
+            # Draw detected circles for visualization
+            cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
+            cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
+
+    return frame, output_circles
+
 
 def start_camera():
     selection = camera_listbox.curselection()
@@ -61,20 +96,34 @@ def start_camera():
         ret, frame = cap.read()
         if not ret:
             break
-
-        cx_orange, cy_orange, _, frame = make_mask(frame, "orange")
-        cx_green, cy_green, _, frame = make_mask(frame, "green")
-
+    
+        frame, circles = detect_circle(frame)
+    
+        if circles:
+            for (x, y, r) in circles:
+                # Create a mask for just this circle
+                circle_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+                cv2.circle(circle_mask, (x, y), r, 255, thickness=-1)
+    
+                # Detect colors inside this circle on the full frame
+                cx_orange, cy_orange, _, frame = make_mask(frame, "orange", extra_mask=circle_mask)
+                cx_green, cy_green, _, frame = make_mask(frame, "green", extra_mask=circle_mask)
+    
+                # Optional: Draw center points
+                cv2.circle(frame, (cx_orange, cy_orange), 3, (0, 165, 255), -1)  # Orange dot
+                cv2.circle(frame, (cx_green, cy_green), 3, (0, 255, 0), -1)      # Green dot
+    
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-
+    
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         elif key == ord(' '):
-            # On SPACE press, lock the current centroid positions
             locked_centroids["orange"] = (cx_orange, cy_orange)
             locked_centroids["green"] = (cx_green, cy_green)
             print(f"Locked orange at {locked_centroids['orange']}, green at {locked_centroids['green']}")
+    
+
 
     cap.release()
     cv2.destroyAllWindows()
