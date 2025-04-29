@@ -121,8 +121,8 @@ def start_camera():
                     cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Only draw the circle if associated
 
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-        #cv2.imshow("Live Green Mask Feed, press q to close.", greenmask)
-        #cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
+        cv2.imshow("Live Green Mask Feed, press q to close.", greenmask)
+        cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
