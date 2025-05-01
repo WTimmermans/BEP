@@ -1,28 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Apr 29 16:25:22 2025
-
-Code for GUI tool to calibrate the HSV colour threshold. Provided by ChatGPT.
-
-Camera Selection is made by entering a index number number from the list
-given and pressing enter (in Python Console).
-
-@author: Steffen
-"""
 import cv2
 import numpy as np
+from cameradetect import detect_cameras
+import platform
 
 def nothing(x):
     pass
-
-def detect_cameras(max_tested=5): #Detects cameras connected to computer
-    cameras =[]
-    for i in range(max_tested):
-        cap = cv2.VideoCapture(i)
-        if cap.read()[0]:
-            cameras.append((i, f"Camera {i}"))
-        cap.release()
-    return cameras
 
 # === Camera Selection ===
 print("Scanning for Cameras....")
@@ -41,7 +23,10 @@ camera_index = camera_list[selected_idx][0]
 
 # === Start Calibration ===
 # Open camera
-cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+if platform.system() == 'Windows':
+    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
+else:
+    cap = cv2.VideoCapture(camera_index)  # Default for macOS/Linux
 
 # Create a window
 cv2.namedWindow("Calibration")
