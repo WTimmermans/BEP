@@ -1,52 +1,44 @@
 import numpy as np
 
-yellow_lower = np.array([])
-yellow_upper = np.array([])
+yellow_lower = np.array([15, 151, 151])
+yellow_upper = np.array([26, 255, 255])
 
-lightgreen_lower = np.array([])
-lightgreen_upper = np.array([])
+lightgreen_lower = np.array([41, 14, 99])
+lightgreen_upper = np.array([62, 255, 255])
 
-darkgreen_lower = np.array([])
-darkgreen_upper = np.array([])
+darkgreen_lower = np.array([94, 141, 0])
+darkgreen_upper = np.array([100, 255, 135])
 
-aquamarine_lower = np.array([])
-aquamarine_upper = np.array([])
+aquamarine_lower = np.array([90, 111, 0])
+aquamarine_upper = np.array([101, 141, 198])
 
-turquoise_lower = np.array([])
-turquoise_upper = np.array([])
+turquoise_lower = np.array([90, 61, 173])
+turquoise_upper = np.array([110, 255, 248])
 
-lightblue_lower = np.array([])
-lightblue_upper = np.array([])
+lightblue_lower = np.array([94, 101, 180])
+lightblue_upper = np.array([104, 255, 255])
 
-darkblue_lower = np.array([])
-darkblue_upper = np.array([])
+darkblue_lower = np.array([102, 139, 0])
+darkblue_upper = np.array([111, 255, 165])
 
-purple_lower = np.array([])
-purple_upper = np.array([])
+purple_lower = np.array([124, 45, 99])
+purple_upper = np.array([167, 255, 255])
 
-violet_lower = np.array([])
-violet_upper = np.array([])
+violet_lower = np.array([168, 85, 121])
+violet_upper = np.array([179, 255, 255])
 
-red_lower = np.array([])
-red_upper = np.array([])
+red_lower = np.array([0, 199, 167])
+red_upper = np.array([7, 255, 255])
 
-orange_lower = np.array([])
-orange_upper = np.array([])
+orange_lower = np.array([10, 179, 180])
+orange_upper = np.array([18, 255, 255])
 
-pink_lower = np.array([])
-pink_upper = np.array([])
+pink_lower = np.array([0, 76, 182])
+pink_upper = np.array([13, 128, 219])
 
-brown_lower = np.array([])
-brown_upper = np.array([])
+brown_lower = np.array([4, 0, 40])
+brown_upper = np.array([13, 137, 132])
 
-gray_lower = np.array([])
-gray_upper = np.array([])
-
-white_lower = np.array([])
-white_upper = np.array([])
-
-black_lower = np.array([])
-black_upper = np.array([])
 
 np.savez("colourvalues.npz", 
          yellow_lower=yellow_lower, yellow_upper=yellow_upper,
@@ -61,10 +53,7 @@ np.savez("colourvalues.npz",
          red_lower=red_lower, red_upper=red_upper,
          orange_lower=orange_lower, orange_upper=orange_upper,
          pink_lower=pink_lower, pink_upper=pink_upper,
-         brown_lower=brown_lower, brown_upper=brown_upper,
-         gray_lower=gray_lower, gray_upper=gray_upper,
-         white_lower=white_lower, white_upper=white_upper,
-         black_lower=black_lower, black_upper=black_upper
+         brown_lower=brown_lower, brown_upper=brown_upper
 )
 
 print("Saved!")

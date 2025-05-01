@@ -73,10 +73,9 @@ while True:
         break
     elif key == ord("s"):
         color_name = input("Enter color name to save (e.g., orange): ").strip()
-        np.savez(f"{color_name}_values.npz", 
-                 **{f"{color_name}_lower": lower, f"{color_name}_upper": upper})
-        print(f"Saved HSV values for {color_name} to '{color_name}_values.npz'.")
-
+        print(f"{color_name}_lower = {lower.tolist()}")
+        print(f"{color_name}_upper = {upper.tolist()}")
+        
 cap.release()
 cv2.destroyAllWindows()
 
