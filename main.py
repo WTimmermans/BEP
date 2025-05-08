@@ -146,8 +146,12 @@ def start_camera():
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
         # cv2.imshow("Live Green Mask Feed, press q to close.", lightgreenmask)     I guess these are useless now.
         # cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
-
+        
+        # Quit programm by pressing 'q' on keyboard or [X] on screen.
         key = cv2.waitKey(1) & 0xFF
+        
+        if cv2.getWindowProperty("Live Webcam Feed, press q to close.", cv2.WND_PROP_VISIBLE) < 1:
+            break
         
         # Press q to quit program
         if key == ord('q'):
@@ -156,9 +160,10 @@ def start_camera():
         # Press space to lock centroids
         elif key == ord(' '):
             for colour in colours:
-                locked_centroids[colour] = cx, cy
-            
-            print(f"Locked {colour} at {locked_centroids[colour]}")
+                cx, cy, _ = make_mask(frame, colour)
+                if cx != 0 and cy != 0:
+                    locked_centroids[colour] = (cx, cy)
+                    print(f"Locked {colour} at {locked_centroids[colour]}")
         
 
     cap.release()
