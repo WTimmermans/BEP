@@ -141,7 +141,11 @@ def start_camera():
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
                 if associated:
-                    cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Only draw the circle if associated
+                    cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Only draw the (green) circle if associated
+                else:
+                        cv2.circle(frame, (x, y), r, (0, 0, 255), 2)  # Red circle if unassociated
+                        cv2.putText(frame, "Unassociated", (x - 20, y - r - 10), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
 
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
         # cv2.imshow("Live Green Mask Feed, press q to close.", lightgreenmask)     I guess these are useless now.
