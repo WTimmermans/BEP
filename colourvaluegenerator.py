@@ -1,4 +1,9 @@
+### This subscript contains all the lower and upper HSV colour values
+## for our sticker set. Can be changed to fit the situation.
+
 import numpy as np
+
+### Define colour lower and upper value ###
 
 yellow_lower = np.array([15, 151, 151])
 yellow_upper = np.array([26, 255, 255])
@@ -39,6 +44,7 @@ pink_upper = np.array([13, 128, 219])
 brown_lower = np.array([4, 0, 40])
 brown_upper = np.array([13, 137, 132])
 
+### Save values as .npz ###
 
 np.savez("colourvalues.npz", 
          yellow_lower=yellow_lower, yellow_upper=yellow_upper,

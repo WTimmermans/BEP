@@ -1,8 +1,16 @@
+
+### This Subscript detects all connected cameras.
+### The method is different for each platform, thus a function is defined per 
+### platform. Works correctly with Windows and MacOS. Should work with Linux,
+### but that is untested.
+
+# Import relevant modules
 import platform
 import subprocess
 import re
 import shutil
 
+# Retrieves connected cameras for Windows
 def get_windows_cameras():
     try:
         from pygrabber.dshow_graph import FilterGraph
@@ -15,6 +23,7 @@ def get_windows_cameras():
     device_names = graph.get_input_devices()
     return [(i, name) for i, name in enumerate(device_names)]
 
+# Retrieve connected cameras Linux
 #I don't know if this works and I'm not planning to install linux to test it, use at your own discretion
 def get_linux_cameras():
     try:
@@ -36,6 +45,7 @@ def get_linux_cameras():
                 cameras.append((index, name))
     return cameras
 
+# Retrieve connected cameras MacOS
 def get_macos_cameras():
     if not shutil.which("ffmpeg"):
         print("Warning: ffmpeg not installed. Attempting detection via system_profiler...")
@@ -100,7 +110,8 @@ def get_macos_cameras():
             print("Error detecting macOS cameras:", e)
             return []
 
-
+# Use correct camera detect procedure based on the platform and return the 
+# list of cameras.
 def detect_cameras():
     system = platform.system()
     if system == "Windows":

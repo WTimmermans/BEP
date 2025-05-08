@@ -1,3 +1,18 @@
+### This is the main script for the tracking of coloured circular stickers
+### with the goal of measuring distance change.
+
+### When lisitn gcolour related variables the following order is (always) used:
+### yellow, lightgreen, darkgreen, aquamarine. turquoise, lightblue, darkblue,
+### purple, violet, red, orange, pink, brown.
+### This colour sequence is defined by the sticker sheet.
+
+### Created by Steffen Scheelings and Wouter Timmermans 
+### For BEP at TU Delft 2025
+
+# ====  BROWN IS CURRENTLY 'TURNED OFF', TO TURN ON -> ADD TO 'COLOURS' VARIABLE===
+
+
+# Import relevant modules
 import cv2
 import numpy as np
 import platform
@@ -10,11 +25,26 @@ import shutil
 # Load colour values
 colourtable = np.load("colourvalues.npz")
 
+# Define EMPTY centroid location variables
 locked_centroids = {
+    "yellow": None,
+    "lightgreen": None,
+    "darkgreen": None,
+    "aquamarine": None,
+    "turquoise": None,
+    "lightblue": None,
+    "darkblue": None,
+    "purple": None,
+    "violet": None,
+    "red": None,
     "orange": None,
-    "green": None
+    "pink": None,
+    #"brown": None
+    
 }
 
+
+# Creates a mask (negative image) of a colour
 def make_mask(frame, colour, extra_mask=None):
     global locked_centroids
 
@@ -33,12 +63,14 @@ def make_mask(frame, colour, extra_mask=None):
 
     return cx, cy, mask
 
+# Detects circles within the camera feed
 def detect_circle(frame):
     # Convert to grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     gray = cv2.medianBlur(gray, 5)
     
+    # Hough circle detect with adjustable paramaters
     circles = cv2.HoughCircles(
         gray,
         cv2.HOUGH_GRADIENT,
@@ -58,7 +90,7 @@ def detect_circle(frame):
             output_circles.append((i[0], i[1], i[2]))  # (x, y, r)
     return output_circles
 
-
+# Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
     selection = camera_listbox.curselection()
     if not selection:
@@ -83,10 +115,6 @@ def start_camera():
         if not ret:
             break
 
-        # Predefine empty masks
-        greenmask = np.zeros(frame.shape[:2], dtype=np.uint8)
-        orangemask = np.zeros(frame.shape[:2], dtype=np.uint8)
-
         circles = detect_circle(frame)
 
         if circles:
@@ -94,45 +122,44 @@ def start_camera():
                 circle_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
                 cv2.circle(circle_mask, (x, y), r, 128, thickness=-1)
 
-                cx_orange, cy_orange, orangemask = make_mask(frame, "orange", extra_mask=circle_mask)
-                cx_green, cy_green, greenmask = make_mask(frame, "green", extra_mask=circle_mask)
-
                 associated = False
+                
+                colours = ["yellow", "lightgreen", "darkgreen", "aquamarine",
+                           "turquoise", "lightblue", "darkblue", "purple",
+                           "violet", "red", "orange", "pink"]
 
-                if cx_orange != 0 and cy_orange != 0:
-                    associated = True
-                    if locked_centroids["orange"] is not None:
-                        lx, ly = locked_centroids["orange"]
-                        cv2.line(frame, (lx, ly), (cx_orange, cy_orange), (255, 0, 0), 2)
-                    cv2.circle(frame, (cx_orange, cy_orange), 5, (255, 0, 0), -1)
-                    cv2.putText(frame, f"orange: ({cx_orange},{cy_orange})", (cx_orange + 10, cy_orange - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-
-                if cx_green != 0 and cy_green != 0:
-                    associated = True
-                    if locked_centroids["green"] is not None:
-                        lx, ly = locked_centroids["green"]
-                        cv2.line(frame, (lx, ly), (cx_green, cy_green), (255, 0, 0), 2)
-                    cv2.circle(frame, (cx_green, cy_green), 5, (255, 0, 0), -1)
-                    cv2.putText(frame, f"green: ({cx_green},{cy_green})", (cx_green + 10, cy_green - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+                for colour in colours:
+                    mask = np.zeros(frame.shape[:2], dtype=np.uint8)        # Predefine empty mask
+                    cx, cy, mask = make_mask(frame, colour, extra_mask=circle_mask) # Make coloured mask
+                    if cx !=0 and cy !=0:
+                        associated = True
+                        if locked_centroids[colour] is not None:
+                            lx, ly = locked_centroids[colour]
+                            cv2.line(frame, (lx, ly), (cx, cy), (255, 0, 0), 2)
+                        cv2.circle(frame, (cx, cy), 5, (255, 0, 0), -1)
+                        cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy-10), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
                 if associated:
                     cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Only draw the circle if associated
 
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-        cv2.imshow("Live Green Mask Feed, press q to close.", greenmask)
-        cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
+        # cv2.imshow("Live Green Mask Feed, press q to close.", lightgreenmask)     I guess these are useless now.
+        # cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
 
         key = cv2.waitKey(1) & 0xFF
+        
+        # Press q to quit program
         if key == ord('q'):
             break
-        elif key == ord(' '):
-            locked_centroids["orange"] = (cx_orange, cy_orange)
-            locked_centroids["green"] = (cx_green, cy_green)
-            print(f"Locked orange at {locked_centroids['orange']}, green at {locked_centroids['green']}")
         
-
+        # Press space to lock centroids
+        elif key == ord(' '):
+            for colour in colours:
+                locked_centroids[colour] = cx, cy
+            
+            print(f"Locked {colour} at {locked_centroids[colour]}")
+        
 
     cap.release()
     cv2.destroyAllWindows()
@@ -140,7 +167,6 @@ def start_camera():
 # Tkinter setup
 root = tk.Tk()
 root.title("Camera Selector")
-
 tk.Label(root, text="Select a camera from the list:").pack(pady=(10, 0))
 
 # Get camera list
@@ -148,10 +174,14 @@ cameras = detect_cameras()  # List of (index, name)
 if platform.system() == "Darwin" and not shutil.which("ffmpeg"):
     messagebox.showerror("Warning", "ffmpeg is not installed, please install ffmpeg to get camera names.")
 
+# Display camera list and selection window.
 camera_listbox = tk.Listbox(root, height=6, width=50)
 for i, (index, name) in enumerate(cameras):
     camera_listbox.insert(tk.END, f"[{index}] {name}")
 camera_listbox.pack(padx=10, pady=10)
+
+# start camera (camera initialisation, circle & colour detection) starts when 
+# button is pressed.
 start_button = tk.Button(root, text="Start Camera", command=start_camera)
 start_button.pack(pady=20)
 

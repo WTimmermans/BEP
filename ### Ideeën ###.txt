@@ -1,0 +1,35 @@
+### Ideeën ###
+
+Live video feed met de displacement grafiek overlayed.
+Afstand meting?(aruco marker (graveren)[aruco is onderdeel van openCV], standard sticker afstand, calibratie punt, precies graferen)
+gegraveerde rondjes in metaal (is contrast genoeg? -> metaal zwart spuiten en dan graveren)
+
+Transporteerbaarheid fysieke delen
+
+
+### Nu Verder ###
+
+Verder Fysiek:
+- Andere kokers (selectie halen (makkelijker buigbaar))
+- Stalen delen (ipv 3Dprint -> stijver, minder balk speling)
+- onderkant minder breed
+- Welke extrusieprofielen
+- stelschroef in hoek
+
+Verder Sensor:
+- Verbeteren van cirkel + kleurherkenning
+- Als graveren/aruco is kleurherkenning uberhaupt nodig? (alleen circel detectie)
+- Afstand calibratie (dmv. punten of vast herkenningspunt)
+- Lijn maken tussen de punten
+- buiging tracken
+- Deformation live overlay grafiek maken (moment, shear grafieken)
+
+
+ #### Dosier benodigdheden ###
+- Handleiding van het apparaat
+- technische tekeningen
+- Solid works modellen & FEM
+- De link naar de code (github) 
+- Uitleg bij de code
+- Soort 'tijdlijn' van de ideén en dingen die we getest hebben en waarom wel/niet gebruikt.
+- Mag als een folder met alles erin (niet per se een pdf)
