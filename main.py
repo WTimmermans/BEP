@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import messagebox
 from cameradetect import detect_cameras
 import shutil
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 # Storage for deflection tracking
@@ -38,8 +38,8 @@ def detect_circle(frame):
         minDist=50,     # Minimum distance between detected centres
         param1=70,      # Upper threshold for Canny edge detector
         param2=40,      # Threshold for center detection
-        minRadius=5,    # Minimum circle radius
-        maxRadius=40    # Maximum circle radius
+        minRadius=1,    # Minimum circle radius
+        maxRadius=20    # Maximum circle radius
     )
 
     output_circles = [] # Define output as an array
@@ -62,18 +62,15 @@ def detect_circle(frame):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
             
             # Store position
-            if i not in marker_positions:
-                marker_positions[i] = []
-            marker_positions[i].append((frame_count, y))  # track vertical deflection (Y only)
+            # if i not in marker_positions:
+            #     marker_positions[i] = []
+            # marker_positions[i].append((frame_count, y))  # track vertical deflection (Y only)
             
             
     return output_circles
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
-    
-    global frame_count
-    frame_count = 0
     
     selection = camera_listbox.curselection()
     if not selection:
@@ -86,22 +83,49 @@ def start_camera():
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
         return
+    
+    # Setup for live plotting
+    plt.ion()  # Interactive mode on
+    fig, ax = plt.subplots()
+    plt.show(block=False)
+    scatter = ax.scatter([], [])
+    ax.set_xlabel("X Position (pixels)")
+    ax.set_ylabel("Y Position (pixels)")
+    ax.set_title("Live Marker Positions (Y vs X)")
+    ax.invert_yaxis()  # Y increases downward in image coordinates
 
     while cap.isOpened():
         ret, frame = cap.read()
-        frame_count += 1
         if not ret:
             break
 
         # Call the circle detect funtion.
         circles = detect_circle(frame)
-                
+        
+        # Live plot update
+        if len(circles) > 0:
+            xs = [c[0] for c in circles]
+            ys = [c[1] for c in circles]
+            
+            scatter.set_offsets(np.c_[xs, ys])
+            
+            # Fix axis limits to avoid autoscale jumping
+            ax.set_xlim(0, frame.shape[1])
+            ax.set_ylim(frame.shape[0], 0)
+            
+            fig.canvas.draw()           # Renders current state
+            fig.canvas.flush_events()   # Forces updates plot to show immediatly
+        
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
         
@@ -115,18 +139,10 @@ def start_camera():
         if key == ord('q'):
             break
         
-        
-        # This is to lock/track the centroids: to be fixed later.
-        
-        # Press space to lock centroids
-        # elif key == ord(' '):
-        #     if cx != 0 and cy != 0:
-        #         locked_centroids = (cx, cy)
-        #         print(f"Locked at {locked_centroids}")
-        
-
     cap.release()
     cv2.destroyAllWindows()
+    plt.ioff()  # Turn off interactive mode
+    plt.show()  # Keep final plot open
 
 # Tkinter setup
 root = tk.Tk()

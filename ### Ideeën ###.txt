@@ -2,26 +2,30 @@
 
 Live video feed met de displacement grafiek overlayed.
 Afstand meting?(aruco marker (graveren)[aruco is onderdeel van openCV], standard sticker afstand, calibratie punt, precies graferen)
-gegraveerde rondjes in metaal (is contrast genoeg? -> metaal zwart spuiten en dan graveren)
 
 Transporteerbaarheid fysieke delen
 
+Image 'crop' om widescreen te maken zodat onnodige info van boven/beneden wegvalt.
+Save timedomain information for deflection over time.
+Add beam selection menu
 
+What happens if circle is 'lost'? Only update new information (How often refreshed?)
+ 
 ### Nu Verder ###
 
 Verder Fysiek:
 - Andere kokers (selectie halen (makkelijker buigbaar))
-- Stalen delen (ipv 3Dprint -> stijver, minder balk speling)
-- onderkant minder breed
-- Welke extrusieprofielen
-- stelschroef in hoek
+- Extra support
+- camera stand
+- Adapter for flat profiles
+- 'beckies'
 
 Verder Sensor:
-- Verbeteren van cirkel + kleurherkenning
-- Als graveren/aruco is kleurherkenning uberhaupt nodig? (alleen circel detectie)
+- verbeteren circkel herkenning op 50 cm afstand (reduce flickering, finetune parameters)
 - Afstand calibratie (dmv. punten of vast herkenningspunt)
 - Lijn maken tussen de punten
 - buiging tracken
+- Deflection grafiek met lijn
 - Deformation live overlay grafiek maken (moment, shear grafieken)
 
 
