@@ -1,16 +1,15 @@
-### This is the main script for the tracking of coloured circular stickers
-### with the goal of measuring distance change.
+"""
+=== MAIN ===
 
-### When lisitn gcolour related variables the following order is (always) used:
-### yellow, lightgreen, darkgreen, aquamarine. turquoise, lightblue, darkblue,
-### purple, violet, red, orange, pink, brown.
-### This colour sequence is defined by the sticker sheet.
+This is the main script for the tracking of circular stickers with the goal 
+of measuring (vertical) distance change. This then corresponds to the 
+deflection of a beam.
 
-### Created by Steffen Scheelings and Wouter Timmermans 
-### For BEP at TU Delft 2025
+Adjust parameters within 'circles' to match markers and situation.
 
-# ====  BROWN IS CURRENTLY 'TURNED OFF', TO TURN ON -> ADD TO 'COLOURS' VARIABLE===
-
+Created by Steffen Scheelings and Wouter Timmermans 
+For BEP at TU Delft 2025
+"""
 
 # Import relevant modules
 import cv2
@@ -20,78 +19,62 @@ import tkinter as tk
 from tkinter import messagebox
 from cameradetect import detect_cameras
 import shutil
+#import matplotlib.pyplot as plt
 
 
-# Load colour values
-colourtable = np.load("colourvalues.npz")
-
-# Define EMPTY centroid location variables
-locked_centroids = {
-    "yellow": None,
-    "lightgreen": None,
-    "darkgreen": None,
-    "aquamarine": None,
-    "turquoise": None,
-    "lightblue": None,
-    "darkblue": None,
-    "purple": None,
-    "violet": None,
-    "red": None,
-    "orange": None,
-    "pink": None,
-    #"brown": None
-    
-}
-
-
-# Creates a mask (negative image) of a colour
-def make_mask(frame, colour, extra_mask=None):
-    global locked_centroids
-
-    HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(HSV, colourtable[colour + "_lower"], colourtable[colour + "_upper"])
-
-    if extra_mask is not None:
-        mask = cv2.bitwise_and(mask, mask, mask=extra_mask)
-
-    moments = cv2.moments(mask)
-    cx, cy = 0, 0
-
-    if moments["m00"] > 2000:
-        cx = int(moments["m10"] / moments["m00"])
-        cy = int(moments["m01"] / moments["m00"])
-
-    return cx, cy, mask
+# Storage for deflection tracking
+marker_positions = {}  # key: marker index, value: list of (x, y) over 
 
 # Detects circles within the camera feed
 def detect_circle(frame):
-    # Convert to grayscale
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
+    # Convert to grayscale and blur (to reduce noise)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.medianBlur(gray, 5)
     
     # Hough circle detect with adjustable paramaters
-    circles = cv2.HoughCircles(
-        gray,
-        cv2.HOUGH_GRADIENT,
-        dp=1.2,
-        minDist=50,
-        param1=70,
-        param2=40,
-        minRadius=5,
-        maxRadius=40
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,
+        dp=1.2,         # Inverse ratio of resolution
+        minDist=50,     # Minimum distance between detected centres
+        param1=70,      # Upper threshold for Canny edge detector
+        param2=40,      # Threshold for center detection
+        minRadius=5,    # Minimum circle radius
+        maxRadius=40    # Maximum circle radius
     )
 
-    output_circles = []
+    output_circles = [] # Define output as an array
 
     if circles is not None:
-        circles = np.uint16(np.around(circles))
-        for i in circles[0, :]:
-            output_circles.append((i[0], i[1], i[2]))  # (x, y, r)
+        circles = np.uint16(np.around(circles[0, :]))
+        
+        # Sort circles left to right based on x for consistent indexing
+        circles = sorted(circles, key=lambda c: c[0])
+        
+        for i, (x, y, r) in enumerate(circles):
+            output_circles.append((x, y, r))  # (x_centre, y_centre, radius) 
+            
+            # Draw the circle green in the output image
+            cv2.circle(frame, (x, y), r, (0, 255, 0), 2)
+            # Draw the center of the circle
+            cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
+            # Label the coordinates
+            cv2.putText(frame, f"#{i}, ({x},{y})", (x+10, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+            
+            # Store position
+            if i not in marker_positions:
+                marker_positions[i] = []
+            marker_positions[i].append((frame_count, y))  # track vertical deflection (Y only)
+            
+            
     return output_circles
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
+    
+    global frame_count
+    frame_count = 0
+    
     selection = camera_listbox.curselection()
     if not selection:
         messagebox.showerror("Error", "Please select a camera.")
@@ -112,44 +95,15 @@ def start_camera():
 
     while cap.isOpened():
         ret, frame = cap.read()
+        frame_count += 1
         if not ret:
             break
 
+        # Call the circle detect funtion.
         circles = detect_circle(frame)
-
-        if circles:
-            for (x, y, r) in circles:
-                circle_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
-                cv2.circle(circle_mask, (x, y), r, 128, thickness=-1)
-
-                associated = False
                 
-                colours = ["yellow", "lightgreen", "darkgreen", "aquamarine",
-                           "turquoise", "lightblue", "darkblue", "purple",
-                           "violet", "red", "orange", "pink"]
-
-                for colour in colours:
-                    mask = np.zeros(frame.shape[:2], dtype=np.uint8)        # Predefine empty mask
-                    cx, cy, mask = make_mask(frame, colour, extra_mask=circle_mask) # Make coloured mask
-                    if cx !=0 and cy !=0:
-                        associated = True
-                        if locked_centroids[colour] is not None:
-                            lx, ly = locked_centroids[colour]
-                            cv2.line(frame, (lx, ly), (cx, cy), (255, 0, 0), 2)
-                        cv2.circle(frame, (cx, cy), 5, (255, 0, 0), -1)
-                        cv2.putText(frame, f"{colour}: ({cx},{cy})", (cx + 10, cy-10), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-
-                if associated:
-                    cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Only draw the (green) circle if associated
-                else:
-                        cv2.circle(frame, (x, y), r, (0, 0, 255), 2)  # Red circle if unassociated
-                        cv2.putText(frame, "Unassociated", (x - 20, y - r - 10), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-
+        # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-        # cv2.imshow("Live Green Mask Feed, press q to close.", lightgreenmask)     I guess these are useless now.
-        # cv2.imshow("Live Orange Mask Feed, press q to close.", orangemask)
         
         # Quit programm by pressing 'q' on keyboard or [X] on screen.
         key = cv2.waitKey(1) & 0xFF
@@ -161,13 +115,14 @@ def start_camera():
         if key == ord('q'):
             break
         
+        
+        # This is to lock/track the centroids: to be fixed later.
+        
         # Press space to lock centroids
-        elif key == ord(' '):
-            for colour in colours:
-                cx, cy, _ = make_mask(frame, colour)
-                if cx != 0 and cy != 0:
-                    locked_centroids[colour] = (cx, cy)
-                    print(f"Locked {colour} at {locked_centroids[colour]}")
+        # elif key == ord(' '):
+        #     if cx != 0 and cy != 0:
+        #         locked_centroids = (cx, cy)
+        #         print(f"Locked at {locked_centroids}")
         
 
     cap.release()
