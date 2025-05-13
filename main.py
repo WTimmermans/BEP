@@ -99,6 +99,8 @@ def start_camera():
     fig, ax = plt.subplots()
     plt.show(block=False)
     scatter = ax.scatter([], [])
+    line, = ax.plot([], [], 'b-', lw=1)  # 'b-' = blue line, lw=1 for line width
+    
     ax.set_xlabel("X Position (pixels)")
     ax.set_ylabel("Y Position (pixels)")
     ax.set_title("Live Marker Positions (Y vs X)")
@@ -117,7 +119,8 @@ def start_camera():
             xs = [c[0] for c in circles]
             ys = [c[1] for c in circles]
             
-            scatter.set_offsets(np.c_[xs, ys])
+            scatter.set_offsets(np.c_[xs, ys]) # Update scatter plot
+            line.set_data(xs, ys)              # Update line plot
             
             # Fix axis limits to avoid autoscale jumping
             ax.set_xlim(0, frame.shape[1])
@@ -141,8 +144,7 @@ def start_camera():
         
     cap.release()
     cv2.destroyAllWindows()
-    plt.ioff()  # Turn off interactive mode
-    plt.show()  # Keep final plot open
+    plt.ioff()  # Turn off interactive mode for plots
 
 # Tkinter setup
 root = tk.Tk()
