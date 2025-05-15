@@ -30,15 +30,15 @@ def detect_circle(frame):
     
     # Convert to grayscale and blur (to reduce noise)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.medianBlur(gray, 5)
+    gray = cv2.medianBlur(gray, 15)
     
     # Hough circle detect with adjustable paramaters
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,
         dp=1.2,         # Inverse ratio of resolution
-        minDist=50,     # Minimum distance between detected centres
-        param1=70,      # Upper threshold for Canny edge detector
+        minDist=10,     # Minimum distance between detected centres
+        param1=40,      # Upper threshold for Canny edge detector
         param2=40,      # Threshold for center detection
-        minRadius=1,    # Minimum circle radius
+        minRadius=0,    # Minimum circle radius
         maxRadius=20    # Maximum circle radius
     )
 
@@ -67,7 +67,7 @@ def detect_circle(frame):
             # marker_positions[i].append((frame_count, y))  # track vertical deflection (Y only)
             
             
-    return output_circles
+    return output_circles, gray
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
@@ -112,7 +112,7 @@ def start_camera():
             break
 
         # Call the circle detect funtion.
-        circles = detect_circle(frame)
+        circles, circledetector = detect_circle(frame)
         
         # Live plot update
         if len(circles) > 0:
@@ -130,7 +130,7 @@ def start_camera():
             fig.canvas.flush_events()   # Forces updates plot to show immediatly
         
         # Show resulting image with circles marked.
-        cv2.imshow("Live Webcam Feed, press q to close.", frame)
+        cv2.imshow("Live Webcam Feed, press q to close.", circledetector)
         
         # Quit programm by pressing 'q' on keyboard or [X] on screen.
         key = cv2.waitKey(1) & 0xFF

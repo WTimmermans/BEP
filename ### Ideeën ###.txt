@@ -5,12 +5,12 @@ Afstand meting?(aruco marker (graveren)[aruco is onderdeel van openCV], standard
 
 Transporteerbaarheid fysieke delen
 
-Image 'crop' om widescreen te maken zodat onnodige info van boven/beneden wegvalt.
-Save timedomain information for deflection over time.
-Add beam selection menu
+> Image 'crop' om widescreen te maken zodat onnodige info van boven/beneden wegvalt.
+Save timedomain information for deflection over time. (optional)
+Add beam selection menu (verschillende voorberekende shear en momentwaardes)
 
 What happens if circle is 'lost'? Only update new information (How often refreshed?)
- 
+
 ### Nu Verder ###
 
 Verder Fysiek:
@@ -22,10 +22,9 @@ Verder Fysiek:
 
 Verder Sensor:
 - verbeteren circkel herkenning op 50 cm afstand (reduce flickering, finetune parameters)
+    - Aanpassen parameters, verminder/verwijder blur
 - Afstand calibratie (dmv. punten of vast herkenningspunt)
-- Lijn maken tussen de punten
-- buiging tracken
-- Deflection grafiek met lijn
+- buiging tracken in echte eenheden
 - Deformation live overlay grafiek maken (moment, shear grafieken)
 
 
