@@ -109,12 +109,14 @@ def start_camera():
     ax.invert_yaxis()   # Y increases downward in image coordinates
     ax.legend()         # Show legend   
 
+    global previous_circles
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Call the circle detect funtion.
+        # Call the circle detect function.
         circles = detect_circle(frame)
         
         if circles:
@@ -135,20 +137,22 @@ def start_camera():
             fig.canvas.draw()           # Renders current state
             fig.canvas.flush_events()   # Forces updates plot to show immediatly
             
-        if locked_positions:
-            lx, ly = zip(*locked_positions)
-            locked_scatter.set_offsets(np.column_stack((lx, ly))) #Update locked scatter 
-            line2.set_data(lx, ly)  # Update locked line
-            
-        
-        elif locked_positions: 
-            locked_scatter.set_offsets(np.empty((0, 2)))
+            if locked_positions:
+                lx, ly = zip(*locked_positions)
+                locked_scatter.set_offsets(np.column_stack((lx, ly))) # Update locked scatter 
+                line2.set_data(lx, ly)  # Update locked line
+                
+                fig.canvas.draw()           # Renders current state
+                fig.canvas.flush_events()   # Forces updates plot to show immediatly
+                
+            else: 
+                locked_scatter.set_offsets(np.empty((0, 2)))
             
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
         
         # Quit programm by pressing 'q' on keyboard or [X] on screen.
-        key = cv2.waitKey(1) & 0xFF
+        key = cv2.waitKey(500) & 0xFF
         
         if key == ord(' '):  # Spacebar pressed
             print("Space Pressed")
