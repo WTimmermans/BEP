@@ -6,12 +6,9 @@ Project group PME-2025-A09 - Interactive Tangible Proxy Device with Reconfigurab
 
 Project description can be found [right here](./Project/02_CDM_Interactive%20Tangible%20Proxy%20Device%20with%20Reconfigurable%20Properties%20for%20VR-XR.pdf).
 
-Project description can be found here.
-
 A custom program to detect points on a cantilever beam, and calculate the displacement using computer vision.
 
 Currently a work in progress.
-
 
 Program requirements:
 - numpy version 2.5
