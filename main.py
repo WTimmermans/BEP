@@ -20,6 +20,15 @@ from tkinter import messagebox
 from cameradetect import detect_cameras
 import shutil
 import matplotlib.pyplot as plt
+from pynput import keyboard
+from threading import Thread, Lock
+
+# Shared key state
+key_state = {
+    'space_pressed': False,
+    'q_pressed': False
+}
+key_lock = Lock()
 
 # === This prevents bufferin of print statements in Windows.
 # Might not be necessary ====
@@ -31,20 +40,37 @@ import matplotlib.pyplot as plt
 locked_positions = []  # Empty variable to store locked positions.
 previous_circles = []
 
+#update variables
+def on_press(key):
+    try:
+        with key_lock:
+            if key == keyboard.Key.space:
+                key_state['space_pressed'] = True
+            elif hasattr(key, 'char') and key.char == 'q':
+                key_state['q_pressed'] = True
+    except AttributeError:
+        pass  # Handle special keys if needed
+
+#actual process that listens for input keys
+def key_listener():
+    with keyboard.Listener(on_press=on_press) as listener:
+        listener.join()
+
+
 # Detects circles within the camera feed
 def detect_circle(frame):
     
     # Convert to grayscale and blur (to reduce noise)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.medianBlur(gray, 15)
+    gray = cv2.medianBlur(gray, 5)
     
     # Hough circle detect with adjustable paramaters
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,
         dp=1.2,         # Inverse ratio of resolution
-        minDist=10,     # Minimum distance between detected centres
-        param1=40,      # Upper threshold for Canny edge detector
+        minDist=50,     # Minimum distance between detected centres
+        param1=70,      # Upper threshold for Canny edge detector
         param2=40,      # Threshold for center detection
-        minRadius=0,    # Minimum circle radius
+        minRadius=1,    # Minimum circle radius
         maxRadius=20    # Maximum circle radius
     )
 
@@ -66,14 +92,8 @@ def detect_circle(frame):
             # Label the coordinates
             cv2.putText(frame, f"#{i}, ({x},{y})", (x+10, y),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-            
-            # Store position
-            # if i not in marker_positions:
-            #     marker_positions[i] = []
-            # marker_positions[i].append((frame_count, y))  # track vertical deflection (Y only)
-            
-            
-    return output_circles, gray
+                  
+    return output_circles
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
@@ -115,72 +135,62 @@ def start_camera():
     ax.invert_yaxis()   # Y increases downward in image coordinates
     ax.legend()         # Show legend   
 
-    global previous_circles
-
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
         # Call the circle detect funtion.
-        circles, circledetector = detect_circle(frame)
-        
-        if circles:
-            previous_circles = circles
-        
+        circles = detect_circle(frame)
+        previous_circles = circles  # Always update to current value
+
         # Live plot update
         if len(circles) > 0:
             xs = [c[0] for c in circles]
             ys = [c[1] for c in circles]
-            
-            scatter.set_offsets(np.c_[xs, ys]) # Update scatter plot
+
+            scatter.set_offsets(np.c_[xs, ys])  # Update scatter plot
             line.set_data(xs, ys)              # Update line plot
-            
+
             # Fix axis limits to avoid autoscale jumping
             ax.set_xlim(0, frame.shape[1])
             ax.set_ylim(frame.shape[0], 0)
-            
-            fig.canvas.draw()           # Renders current state
-            fig.canvas.flush_events()   # Forces updates plot to show immediatly
-            
-            if locked_positions:
-                lx, ly = zip(*locked_positions)
-                locked_scatter.set_offsets(np.column_stack((lx, ly))) # Update locked scatter 
-                line2.set_data(lx, ly)  # Update locked line
-                
-                fig.canvas.draw()           # Renders current state
-                fig.canvas.flush_events()   # Forces updates plot to show immediatly
-                
-            else: 
-                locked_scatter.set_offsets(np.empty((0, 2)))
-            
-        # Show resulting image with circles marked.
-        cv2.imshow("Live Webcam Feed, press q to close.", circledetector)
-        
-        # Quit programm by pressing 'q' on keyboard or [X] on screen.
-        key = cv2.waitKey(500) & 0xFF
-        
-        if key == ord(' '):  # Spacebar pressed
-            print("Space Pressed")
-            
-            if previous_circles:
-                print("circles detected")
-                locked_positions.clear()
-                locked_positions.extend([(c[0], c[1]) for c in previous_circles]) # Save x & y per circle
-                print("Locked positions:", locked_positions, flush=True) # Print x & y per circle
 
-            else:
-                print("No circles detected")
-                
-        # Detect wheterh [X] has been pressed, then breaks the program        
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+
+        if locked_positions:
+            lx, ly = zip(*locked_positions)
+            locked_scatter.set_offsets(np.column_stack((lx, ly)))
+            line2.set_data(lx, ly)
+        else:
+            locked_scatter.set_offsets(np.empty((0, 2)))
+
+        # Show resulting image with circles marked.
+        cv2.imshow("Live Webcam Feed, press q to close.", frame)
+        cv2.waitKey(1)
+
+        # Handle key presses from listener
+        with key_lock:
+            if key_state['space_pressed']:
+                key_state['space_pressed'] = False
+                print("Space Pressed")
+
+                if circles:
+                    print("Circles detected")
+                    locked_positions.clear()
+                    locked_positions.extend([(c[0], c[1]) for c in circles])
+                    print("Locked positions:", locked_positions, flush=True)
+                else:
+                    print("No circles detected")
+
+            if key_state['q_pressed']:
+                break
+
+        # Optional: still allow closing with window [X]
         if cv2.getWindowProperty("Live Webcam Feed, press q to close.", cv2.WND_PROP_VISIBLE) < 1:
             break
-        
-        # Press q to quit program
-        if key == ord('q'):
-            break
             
-        
     cap.release()
     cv2.destroyAllWindows()
     plt.ioff()  # Turn off interactive mode for plots
@@ -204,5 +214,9 @@ camera_listbox.pack(padx=10, pady=10)
 # start camera (camera initialisation and circle detection) starts when button is pressed.
 start_button = tk.Button(root, text="Start Camera", command=start_camera)
 start_button.pack(pady=20)
+
+# Start key listener thread
+listener_thread = Thread(target=key_listener, daemon=True)
+listener_thread.start()
 
 root.mainloop()
