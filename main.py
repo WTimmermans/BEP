@@ -21,9 +21,15 @@ from cameradetect import detect_cameras
 import shutil
 import matplotlib.pyplot as plt
 
+# === This prevents bufferin of print statements in Windows.
+# Might not be necessary ====
+# import sys
+# sys.stdout.reconfigure(line_buffering=True)
+
 
 # Storage for deflection tracking
-marker_positions = {}  # key: marker index, value: list of (x, y) over 
+locked_positions = []  # Empty variable to store locked positions.
+previous_circles = []
 
 # Detects circles within the camera feed
 def detect_circle(frame):
@@ -60,13 +66,7 @@ def detect_circle(frame):
             # Label the coordinates
             cv2.putText(frame, f"#{i}, ({x},{y})", (x+10, y),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-            
-            # Store position
-            # if i not in marker_positions:
-            #     marker_positions[i] = []
-            # marker_positions[i].append((frame_count, y))  # track vertical deflection (Y only)
-            
-            
+                  
     return output_circles
 
 # Main function: Initialises camera. Circle detection and colour detection.
@@ -98,13 +98,16 @@ def start_camera():
     plt.ion()  # Interactive mode on
     fig, ax = plt.subplots()
     plt.show(block=False)
-    scatter = ax.scatter([], [])
-    line, = ax.plot([], [], 'b-', lw=1)  # 'b-' = blue line, lw=1 for line width
+    scatter = ax.scatter([], [], label='Live')
+    locked_scatter = ax.scatter([], [], c='red', marker='x', label='Locked')
+    line, = ax.plot([], [], 'b-', lw=1)  # 'b-' = blue line, lw=1 for line width for live
+    line2, =ax.plot([],[], 'r-', lw=1)   # 'r-' = red line, lw=1 for line width for locked
     
     ax.set_xlabel("X Position (pixels)")
     ax.set_ylabel("Y Position (pixels)")
     ax.set_title("Live Marker Positions (Y vs X)")
-    ax.invert_yaxis()  # Y increases downward in image coordinates
+    ax.invert_yaxis()   # Y increases downward in image coordinates
+    ax.legend()         # Show legend   
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -113,6 +116,9 @@ def start_camera():
 
         # Call the circle detect funtion.
         circles = detect_circle(frame)
+        
+        if circles:
+            previous_circles = circles
         
         # Live plot update
         if len(circles) > 0:
@@ -128,19 +134,42 @@ def start_camera():
             
             fig.canvas.draw()           # Renders current state
             fig.canvas.flush_events()   # Forces updates plot to show immediatly
+            
+        if locked_positions:
+            lx, ly = zip(*locked_positions)
+            locked_scatter.set_offsets(np.column_stack((lx, ly))) #Update locked scatter 
+            line2.set_data(lx, ly)  # Update locked line
+            
         
+        elif locked_positions: 
+            locked_scatter.set_offsets(np.empty((0, 2)))
+            
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
         
         # Quit programm by pressing 'q' on keyboard or [X] on screen.
         key = cv2.waitKey(1) & 0xFF
         
+        if key == ord(' '):  # Spacebar pressed
+            print("Space Pressed")
+            
+            if previous_circles:
+                print("circles detected")
+                locked_positions.clear()
+                locked_positions.extend([(c[0], c[1]) for c in previous_circles]) # Save x & y per circle
+                print("Locked positions:", locked_positions, flush=True) # Print x & y per circle
+
+            else:
+                print("No circles detected")
+                
+        # Detect wheterh [X] has been pressed, then breaks the program        
         if cv2.getWindowProperty("Live Webcam Feed, press q to close.", cv2.WND_PROP_VISIBLE) < 1:
             break
         
         # Press q to quit program
         if key == ord('q'):
             break
+            
         
     cap.release()
     cv2.destroyAllWindows()
@@ -153,7 +182,7 @@ tk.Label(root, text="Select a camera from the list:").pack(pady=(10, 0))
 
 # Get camera list
 cameras = detect_cameras()  # List of (index, name)
-if platform.system() == "Darwin" and not shutil.which("ffmpeg"):
+if platform.system() == "Darwin" and not shutil.which("ffmpeg"):    # Ensures camera works on Mac
     messagebox.showerror("Warning", "ffmpeg is not installed, please install ffmpeg to get camera names.")
 
 # Display camera list and selection window.
@@ -162,8 +191,7 @@ for i, (index, name) in enumerate(cameras):
     camera_listbox.insert(tk.END, f"[{index}] {name}")
 camera_listbox.pack(padx=10, pady=10)
 
-# start camera (camera initialisation, circle & colour detection) starts when 
-# button is pressed.
+# start camera (camera initialisation and circle detection) starts when button is pressed.
 start_button = tk.Button(root, text="Start Camera", command=start_camera)
 start_button.pack(pady=20)
 
