@@ -34,12 +34,6 @@ key_state = {
 }
 key_lock = Lock()
 
-# === This prevents bufferin of print statements in Windows.
-# Might not be necessary ====
-# import sys
-# sys.stdout.reconfigure(line_buffering=True)
-
-
 # Storage for deflection tracking
 locked_positions = []  # Empty variable to store locked positions.
 
@@ -71,10 +65,10 @@ def detect_circle(frame):
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,
         dp=1.2,         # Inverse ratio of resolution
         minDist=50,     # Minimum distance between detected centres
-        param1=300,      # Upper threshold for Canny edge detector
-        param2=17,      # Threshold for center detection
+        param1=300,     # Upper threshold for Canny edge detector (Circle contrast)
+        param2=23,      # Threshold for center detection (Circle "perfectness")
         minRadius=1,    # Minimum circle radius
-        maxRadius=12    # Maximum circle radius
+        maxRadius=10    # Maximum circle radius
     )
 
     output_circles = [] # Define output as an array
@@ -144,10 +138,10 @@ def start_camera():
             break
         
         #crop for unnessecary pixels
-        frame = frame[0:720,100:880]
+        frame = frame[300:570,0:1080] # [upper:lower, left:right]
 
         # Call the circle detect funtion.
-        circles = detect_circle(frame)
+        circles = detect_circle(frame) # AANGEPAST
 
         # Live plot update
         if len(circles) > 0:
@@ -173,7 +167,7 @@ def start_camera():
 
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-
+      
         # Handle key presses from listener
         with key_lock:
             if key_state['space_pressed']:
