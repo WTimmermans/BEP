@@ -38,7 +38,6 @@ key_lock = Lock()
 
 # Storage for deflection tracking
 locked_positions = []  # Empty variable to store locked positions.
-previous_circles = []
 
 #update variables
 def on_press(key):
@@ -113,12 +112,12 @@ def start_camera():
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
-        return
+        return    
     
     # Setup for live plotting
     plt.ion()  # Interactive mode on
@@ -139,10 +138,12 @@ def start_camera():
         ret, frame = cap.read()
         if not ret:
             break
+        
+        #crop for unnessecary pixels
+        frame = frame[0:720,100:880]
 
         # Call the circle detect funtion.
         circles = detect_circle(frame)
-        previous_circles = circles  # Always update to current value
 
         # Live plot update
         if len(circles) > 0:
