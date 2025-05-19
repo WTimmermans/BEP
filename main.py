@@ -23,22 +23,16 @@ import matplotlib.pyplot as plt
 from pynput import keyboard
 from threading import Thread, Lock
 
+
+# Storage for deflection tracking
+locked_positions = []  # Empty variable to store locked positions.
+
 # Shared key state
 key_state = {
     'space_pressed': False,
     'q_pressed': False
 }
 key_lock = Lock()
-
-# === This prevents bufferin of print statements in Windows.
-# Might not be necessary ====
-# import sys
-# sys.stdout.reconfigure(line_buffering=True)
-
-
-# Storage for deflection tracking
-locked_positions = []  # Empty variable to store locked positions.
-previous_circles = []
 
 #update variables
 def on_press(key):
@@ -68,10 +62,10 @@ def detect_circle(frame):
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,
         dp=1.2,         # Inverse ratio of resolution
         minDist=50,     # Minimum distance between detected centres
-        param1=70,      # Upper threshold for Canny edge detector
-        param2=40,      # Threshold for center detection
+        param1=300,      # Upper threshold for Canny edge detector
+        param2=17,      # Threshold for center detection
         minRadius=1,    # Minimum circle radius
-        maxRadius=20    # Maximum circle radius
+        maxRadius=12    # Maximum circle radius
     )
 
     output_circles = [] # Define output as an array
@@ -109,12 +103,12 @@ def start_camera():
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
@@ -142,7 +136,6 @@ def start_camera():
 
         # Call the circle detect funtion.
         circles = detect_circle(frame)
-        previous_circles = circles  # Always update to current value
 
         # Live plot update
         if len(circles) > 0:
@@ -168,7 +161,6 @@ def start_camera():
 
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-        cv2.waitKey(1)
 
         # Handle key presses from listener
         with key_lock:
@@ -186,10 +178,6 @@ def start_camera():
 
             if key_state['q_pressed']:
                 break
-
-        # Optional: still allow closing with window [X]
-        if cv2.getWindowProperty("Live Webcam Feed, press q to close.", cv2.WND_PROP_VISIBLE) < 1:
-            break
             
     cap.release()
     cv2.destroyAllWindows()
