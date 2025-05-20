@@ -26,6 +26,7 @@ from threading import Thread, Lock
 
 # Storage for deflection tracking
 locked_positions = []  # Empty variable to store locked positions.
+deflections = []
 
 # Shared key state
 key_state = {
@@ -74,7 +75,7 @@ def detect_circle(frame):
     output_circles = [] # Define output as an array
 
     if circles is not None:
-        circles = np.uint16(np.around(circles[0, :]))
+        circles = np.int16(np.around(circles[0, :]))
         
         # Sort circles left to right based on x for consistent indexing
         circles = sorted(circles, key=lambda c: c[0])
@@ -119,13 +120,20 @@ def start_camera():
     
     # Setup for live plotting
     plt.ion()  # Interactive mode on
-    fig, ax = plt.subplots()
+    fig, (ax, ax_deflect) = plt.subplots(1, 2, figsize=(10,5))
     plt.show(block=False)
     scatter = ax.scatter([], [], label='Live')
     locked_scatter = ax.scatter([], [], c='red', marker='x', label='Locked')
     line, = ax.plot([], [], 'b-', lw=1)  # 'b-' = blue line, lw=1 for line width for live
     line2, =ax.plot([],[], 'r-', lw=1)   # 'r-' = red line, lw=1 for line width for locked
     
+    deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
+    ax_deflect.set_title("Vertical Deflection per Marker")
+    ax_deflect.set_xlabel("Marker Index")
+    ax_deflect.set_ylabel("ΔY (pixels)")
+    ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
+    ax_deflect.legend()
+
     ax.set_xlabel("X Position (pixels)")
     ax.set_ylabel("Y Position (pixels)")
     ax.set_title("Live Marker Positions (Y vs X)")
@@ -164,6 +172,21 @@ def start_camera():
             line2.set_data(lx, ly)
         else:
             locked_scatter.set_offsets(np.empty((0, 2)))
+
+        # Measure Difference between locked and currect vertical position
+        if locked_positions and len(circles) == len(locked_positions):
+            deflections = [curr[1] - ref[1] for curr, ref in zip(circles, locked_positions)]
+            deflect_plot.set_data(range(len(deflections)), deflections)
+            
+            # Set plot axis sizes
+            ax_deflect.set_xlim(0, len(deflections))
+            ax_deflect.set_ylim(100, -100)
+
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        # End Deflection Measure
+
+
 
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
