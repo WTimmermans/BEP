@@ -25,15 +25,25 @@ from threading import Thread, Lock
 
 
 # Storage for deflection tracking
+<<<<<<< HEAD
 locked_positions = []  # Empty variable to store locked positions.
 deflections = []
 scale = None
 known_distance_mm = 500
+=======
+locked_positions = []  # Empty variable to store locked positions
+deflections = []
+
+# Value for real world circle radius for calibration
+known_radius_mm = 5 #mm
+scale = 1 # prevents crash
+>>>>>>> origin/Steffen
 
 # Shared key state
 key_state = {
     'space_pressed': False,
     'q_pressed': False,
+<<<<<<< HEAD
     'c_pressed': True
 }
 key_lock = Lock()
@@ -42,6 +52,12 @@ key_lock = Lock()
 locked_positions = []  # Empty variable to store locked positions.
 
 
+=======
+    'c_pressed': False
+}
+key_lock = Lock()
+
+>>>>>>> origin/Steffen
 #update variables
 def on_press(key):
     try:
@@ -59,7 +75,6 @@ def on_press(key):
 def key_listener():
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
-
 
 # Detects circles within the camera feed
 def detect_circle(frame):
@@ -80,7 +95,11 @@ def detect_circle(frame):
 
     output_circles = [] # Define output as an array
 
+<<<<<<< HEAD
     if circles is not None and len(circles[0]) >= 2:
+=======
+    if circles is not None:
+>>>>>>> origin/Steffen
         circles = np.around(circles[0, :]).astype(np.float32)
         
         #filter our invalid values
@@ -99,6 +118,7 @@ def detect_circle(frame):
             # Label the coordinates
             cv2.putText(frame, f"#{i}, ({int(x)},{int(y)})", (int(x)+10, int(y)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)                  
+<<<<<<< HEAD
                   
     return output_circles
 
@@ -132,6 +152,32 @@ def calibrate(circles, known_distance_mm):
     scale = known_distance_mm /pixel_dist
     print(f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} mm → scale = {scale:.4f} mm/pixel")
 
+=======
+    return output_circles
+
+def calibrate(circles, known_radius_mm):
+    global scale
+    
+    if not circles:
+        print("No circles available for calibration")
+        return
+    
+    # Extract radii
+    radii = [c[2] for c in circles] # c = (x, y, r)
+    
+    print("Radii:", radii) # TEST
+    
+    avg_radius_pxl = np.mean(radii)
+    scale = avg_radius_pxl/known_radius_mm
+    print('Scale 1:', scale)
+    scale = 0.5
+    print('Scale 2:', scale)
+    print("Calibration Complete:")
+    print(f"Avg. Radius (pixels): {avg_radius_pxl:.2f}")
+    print(f"Known Radius (mm): {known_radius_mm}")
+    print(f"Scale: {scale:.2f} pixels/mm")
+            
+>>>>>>> origin/Steffen
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
     
@@ -146,7 +192,7 @@ def start_camera():
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080) # Set view window size
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
@@ -165,6 +211,13 @@ def start_camera():
     locked_scatter = ax.scatter([], [], c='red', marker='x', label='Locked')
     line, = ax.plot([], [], 'b-', lw=1)  # 'b-' = blue line, lw=1 for line width for live
     line2, =ax.plot([],[], 'r-', lw=1)   # 'r-' = red line, lw=1 for line width for locked
+    deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
+    ax_deflect.set_title("Vertical Deflection per Marker")
+    ax_deflect.set_xlabel("Marker Index")
+    ax_deflect.set_ylabel("ΔY (mm)")
+    ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
+    ax_deflect.legend()
+
     
     deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
     ax_deflect.set_title("Vertical Deflection per Marker")
@@ -201,17 +254,26 @@ def start_camera():
             # Fix axis limits to avoid autoscale jumping
             ax.set_xlim(0, frame.shape[1])
             ax.set_ylim(frame.shape[0], 0)
-
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-
+        
+        # Plot locked positions and add line    
         if locked_positions:
             lx, ly = zip(*locked_positions)
             locked_scatter.set_offsets(np.column_stack((lx, ly)))
             line2.set_data(lx, ly)
         else:
             locked_scatter.set_offsets(np.empty((0, 2)))
+        
+      # Measure Difference between locked and currect vertical position
+        if locked_positions and len(circles) == len(locked_positions):
+            deflections = [curr[1] - ref[1] for curr, ref in zip(circles, locked_positions)] # calculate difference
+            deflections_mm = [d/scale for d in deflections] # Scale delflection using calibration
+            deflect_plot.set_data(range(len(deflections)), deflections) # Plot data
+            
+            # Set plot axis sizes
+            ax_deflect.set_xlim(0, len(deflections_mm))
+            ax_deflect.set_ylim(80, -80)
 
+<<<<<<< HEAD
         # Measure Difference between locked and currect vertical position
         if scale is not None and locked_positions and len(circles) == len(locked_positions):
             deflections = [(curr[1] - ref[1]) * scale for curr, ref in zip(circles, locked_positions)] #in mm
@@ -228,9 +290,14 @@ def start_camera():
 
 
 
+=======
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        
+>>>>>>> origin/Steffen
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
-      
+        
         # Handle key presses from listener
         with key_lock:
             if key_state['space_pressed']:
@@ -244,7 +311,15 @@ def start_camera():
                     print("Locked positions:", locked_positions, flush=True)
                 else:
                     print("No circles detected")
-
+                    
+            if key_state['c_pressed']:
+                key_state['c_pressed'] = False
+                print("Calibration mode activated.")
+                if circles:
+                    calibrate(circles, known_radius_mm)
+                else:
+                    print("No circles detected to calibrate.")
+            
             if key_state['q_pressed']:
                 break
 
