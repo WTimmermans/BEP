@@ -259,7 +259,7 @@ def start_camera():
                 key_state['c_pressed'] = False
                 print("Calibration mode activated.")
                 if circles:
-                    calibrate(circles, known_radius_mm)
+                    calibrate(circles, known_distance_mm)
                 else:
                     print("No circles detected to calibrate.")
             
