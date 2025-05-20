@@ -30,6 +30,7 @@ deflections = []
 
 # Value for real world circle radius for calibration
 known_radius_mm = 5 #mm
+scale = 1 # prevents crash
 
 # Shared key state
 key_state = {
