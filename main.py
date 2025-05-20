@@ -130,7 +130,7 @@ def calibrate(circles, known_distance_mm):
         return
     
     scale = known_distance_mm /pixel_dist
-    print(f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} cm → scale = {scale:.4f} cm/pixel")
+    print(f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} mm → scale = {scale:.4f} mm/pixel")
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
