@@ -80,9 +80,12 @@ def detect_circle(frame):
 
     output_circles = [] # Define output as an array
 
-    if circles is not None:
+    if circles is not None and len(circles[0]) >= 2:
         circles = np.int16(np.around(circles[0, :]))
         
+        #filter our invalid values
+        circles = [c for c in circles if not np.isnan(c[0]) and not np.isnan(c[1])]
+
         # Sort circles left to right based on x for consistent indexing
         circles = sorted(circles, key=lambda c: c[0])
         
@@ -109,10 +112,19 @@ def calibrate(circles, known_distance_mm):
     circle0 = circles[0]
     circleN = circles[-1]
 
-    dx = circleN[0] - circle0[0]
-    dy = circleN[1] - circle0[1]
+    dx = abs(circleN[0] - circle0[0])
+    dy = abs(circleN[1] - circle0[1])
+
+    print(f"dx: {dx}, dy: {dy}")
+
+    print(f"circle0: {circle0}, circleN: {circleN}")
+
     pixel_dist = np.sqrt(dx**2 + dy**2)
 
+    if any(np.isnan(val) for val in [*circle0[:2], *circleN[:2]]):
+        print("Invalid circle coordinates, calibration aborted.")
+        return
+ 
     if pixel_dist == 0:
         print("Zero pixel distance detected!")
         return
@@ -176,7 +188,7 @@ def start_camera():
         frame = frame[300:570,0:1080] # [upper:lower, left:right]
 
         # Call the circle detect funtion.
-        circles = detect_circle(frame) # AANGEPAST
+        circles = detect_circle(frame)
 
         # Live plot update
         if len(circles) > 0:
