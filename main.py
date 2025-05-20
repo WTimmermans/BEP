@@ -29,7 +29,7 @@ locked_positions = []  # Empty variable to store locked positions
 deflections = []
 
 # Value for real world circle radius for calibration
-known_radius_mm = 2.5 #mm
+known_radius_mm = 5 #mm
 
 # Shared key state
 key_state = {
@@ -109,6 +109,9 @@ def calibrate(circles, known_radius_mm):
     
     avg_radius_pxl = np.mean(radii)
     scale = avg_radius_pxl/known_radius_mm
+    print('Scale 1:', scale)
+    scale = 0.5
+    print('Scale 2:', scale)
     print("Calibration Complete:")
     print(f"Avg. Radius (pixels): {avg_radius_pxl:.2f}")
     print(f"Known Radius (mm): {known_radius_mm}")
@@ -200,7 +203,7 @@ def start_camera():
             
             # Set plot axis sizes
             ax_deflect.set_xlim(0, len(deflections_mm))
-            ax_deflect.set_ylim(100/scale, -100/scale)
+            ax_deflect.set_ylim(80, -80)
 
         fig.canvas.draw()
         fig.canvas.flush_events()
