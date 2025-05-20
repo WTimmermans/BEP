@@ -29,7 +29,7 @@ locked_positions = []  # Empty variable to store locked positions
 deflections = []
 
 # Value for real world circle radius for calibration
-known_radius_mm = 5 #mm
+known_radius_mm = 2.5 #mm
 
 # Shared key state
 key_state = {
@@ -47,7 +47,7 @@ def on_press(key):
                 key_state['space_pressed'] = True
             elif hasattr(key, 'char') and key.char == 'q':
                 key_state['q_pressed'] = True
-            elif key.char == 'c':
+            elif hasattr(key, 'char') and key.char == 'c':
                 key_state['c_pressed'] = True
     except AttributeError:
         pass  # Handle special keys if needed
@@ -104,12 +104,15 @@ def calibrate(circles, known_radius_mm):
     
     # Extract radii
     radii = [c[2] for c in circles] # c = (x, y, r)
+    
+    print("Radii:", radii) # TEST
+    
     avg_radius_pxl = np.mean(radii)
     scale = avg_radius_pxl/known_radius_mm
     print("Calibration Complete:")
     print(f"Avg. Radius (pixels): {avg_radius_pxl:.2f}")
     print(f"Known Radius (mm): {known_radius_mm}")
-    print("Scale: {scale:.2f} pixels/mm")
+    print(f"Scale: {scale:.2f} pixels/mm")
             
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
@@ -147,7 +150,7 @@ def start_camera():
     deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
     ax_deflect.set_title("Vertical Deflection per Marker")
     ax_deflect.set_xlabel("Marker Index")
-    ax_deflect.set_ylabel("ΔY (pixels)")
+    ax_deflect.set_ylabel("ΔY (mm)")
     ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
     ax_deflect.legend()
 
@@ -220,6 +223,7 @@ def start_camera():
                     print("No circles detected")
                     
             if key_state['c_pressed']:
+                key_state['c_pressed'] = False
                 print("Calibration mode activated.")
                 if circles:
                     calibrate(circles, known_radius_mm)
