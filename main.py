@@ -27,16 +27,20 @@ from threading import Thread, Lock
 # Storage for deflection tracking
 locked_positions = []  # Empty variable to store locked positions.
 deflections = []
+scale = None
+known_distance_mm = 500
 
 # Shared key state
 key_state = {
     'space_pressed': False,
-    'q_pressed': False
+    'q_pressed': False,
+    'c_pressed': True
 }
 key_lock = Lock()
 
 # Storage for deflection tracking
 locked_positions = []  # Empty variable to store locked positions.
+
 
 #update variables
 def on_press(key):
@@ -46,6 +50,8 @@ def on_press(key):
                 key_state['space_pressed'] = True
             elif hasattr(key, 'char') and key.char == 'q':
                 key_state['q_pressed'] = True
+            elif hasattr(key, 'char') and key.char == 'c':
+                key_state['c_pressed'] = True
     except AttributeError:
         pass  # Handle special keys if needed
 
@@ -93,6 +99,27 @@ def detect_circle(frame):
                   
     return output_circles
 
+def calibrate(circles, known_distance_mm):
+    global scale
+
+    if len(circles) < 2:
+        print("Need at least 2 circles to calibrate!")
+        return
+    
+    circle0 = circles[0]
+    circleN = circles[-1]
+
+    dx = circleN[0] - circle0[0]
+    dy = circleN[1] - circle0[1]
+    pixel_dist = np.sqrt(dx**2 + dy**2)
+
+    if pixel_dist == 0:
+        print("Zero pixel distance detected!")
+        return
+    
+    scale = known_distance_mm /pixel_dist
+    print(f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} cm → scale = {scale:.4f} cm/pixel")
+
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
     
@@ -130,7 +157,7 @@ def start_camera():
     deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
     ax_deflect.set_title("Vertical Deflection per Marker")
     ax_deflect.set_xlabel("Marker Index")
-    ax_deflect.set_ylabel("ΔY (pixels)")
+    ax_deflect.set_ylabel("ΔY(mm))")
     ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
     ax_deflect.legend()
 
@@ -174,13 +201,14 @@ def start_camera():
             locked_scatter.set_offsets(np.empty((0, 2)))
 
         # Measure Difference between locked and currect vertical position
-        if locked_positions and len(circles) == len(locked_positions):
-            deflections = [curr[1] - ref[1] for curr, ref in zip(circles, locked_positions)]
+        if scale is not None and locked_positions and len(circles) == len(locked_positions):
+            deflections = [(curr[1] - ref[1]) * scale for curr, ref in zip(circles, locked_positions)] #in mm
             deflect_plot.set_data(range(len(deflections)), deflections)
             
             # Set plot axis sizes
             ax_deflect.set_xlim(0, len(deflections))
             ax_deflect.set_ylim(100, -100)
+
 
         fig.canvas.draw()
         fig.canvas.flush_events()
@@ -207,6 +235,11 @@ def start_camera():
 
             if key_state['q_pressed']:
                 break
+
+            if key_state['c_pressed']:
+                key_state['c_pressed'] = False
+                calibrate(circles, known_distance_mm)
+
             
     cap.release()
     cv2.destroyAllWindows()
