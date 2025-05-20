@@ -28,10 +28,14 @@ from threading import Thread, Lock
 locked_positions = []  # Empty variable to store locked positions
 deflections = []
 
+# Value for real world circle radius for calibration
+known_radius_mm = 5 #mm
+
 # Shared key state
 key_state = {
     'space_pressed': False,
-    'q_pressed': False
+    'q_pressed': False,
+    'c_pressed': False
 }
 key_lock = Lock()
 
@@ -43,6 +47,8 @@ def on_press(key):
                 key_state['space_pressed'] = True
             elif hasattr(key, 'char') and key.char == 'q':
                 key_state['q_pressed'] = True
+            elif key.char == 'c':
+                key_state['c_pressed'] = True
     except AttributeError:
         pass  # Handle special keys if needed
 
@@ -50,7 +56,6 @@ def on_press(key):
 def key_listener():
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
-
 
 # Detects circles within the camera feed
 def detect_circle(frame):
@@ -89,6 +94,22 @@ def detect_circle(frame):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
                   
     return output_circles
+
+def calibrate(circles, known_radius_mm):
+    global scale
+    
+    if not circles:
+        print("No circles available for calibration")
+        return
+    
+    # Extract radii
+    radii = [c[2] for c in circles] # c = (x, y, r)
+    avg_radius_pxl = np.mean(radii)
+    scale = avg_radius_pxl/known_radius_mm
+    print("Calibration Complete:")
+    print(f"Avg. Radius (pixels): {avg_radius_pxl:.2f}")
+    print(f"Known Radius (mm): {known_radius_mm}")
+    print("Scale: {scale:.2f} pixels/mm")
             
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
@@ -104,7 +125,7 @@ def start_camera():
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080) # Set view window size
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
@@ -170,16 +191,16 @@ def start_camera():
         
       # Measure Difference between locked and currect vertical position
         if locked_positions and len(circles) == len(locked_positions):
-            deflections = [curr[1] - ref[1] for curr, ref in zip(circles, locked_positions)]
-            deflect_plot.set_data(range(len(deflections)), deflections)
+            deflections = [curr[1] - ref[1] for curr, ref in zip(circles, locked_positions)] # calculate difference
+            deflections_mm = [d/scale for d in deflections] # Scale delflection using calibration
+            deflect_plot.set_data(range(len(deflections)), deflections) # Plot data
             
             # Set plot axis sizes
-            ax_deflect.set_xlim(0, len(deflections))
-            ax_deflect.set_ylim(100, -100)
+            ax_deflect.set_xlim(0, len(deflections_mm))
+            ax_deflect.set_ylim(100/scale, -100/scale)
 
         fig.canvas.draw()
         fig.canvas.flush_events()
-        # End Deflection Measure
         
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
@@ -197,7 +218,14 @@ def start_camera():
                     print("Locked positions:", locked_positions, flush=True)
                 else:
                     print("No circles detected")
-
+                    
+            if key_state['c_pressed']:
+                print("Calibration mode activated.")
+                if circles:
+                    calibrate(circles, known_radius_mm)
+                else:
+                    print("No circles detected to calibrate.")
+            
             if key_state['q_pressed']:
                 break
             
