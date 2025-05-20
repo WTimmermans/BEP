@@ -77,7 +77,7 @@ def detect_circle(frame):
     output_circles = [] # Define output as an array
 
     if circles is not None:
-        circles = np.int16(np.around(circles[0, :]))
+        circles = np.around(circles[0, :]).astype(np.float32)
         
         # Sort circles left to right based on x for consistent indexing
         circles = sorted(circles, key=lambda c: c[0])
@@ -86,13 +86,12 @@ def detect_circle(frame):
             output_circles.append((x, y, r))  # (x_centre, y_centre, radius) 
             
             # Draw the circle green in the output image
-            cv2.circle(frame, (x, y), r, (0, 255, 0), 2)
+            cv2.circle(frame, (int(x), int(y)), int(r), (0, 255, 0), 2)
             # Draw the center of the circle
-            cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
+            cv2.circle(frame, (int(x), int(y)), 2, (0, 0, 255), 3)
             # Label the coordinates
-            cv2.putText(frame, f"#{i}, ({x},{y})", (x+10, y),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-                  
+            cv2.putText(frame, f"#{i}, ({int(x)},{int(y)})", (int(x)+10, int(y)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)                  
     return output_circles
 
 def calibrate(circles, known_radius_mm):
