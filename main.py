@@ -38,12 +38,6 @@ key_state = {
 }
 key_lock = Lock()
 
-# Storage for deflection tracking
-locked_positions = []  # Empty variable to store locked positions.
-    'c_pressed': False
-}
-key_lock = Lock()
-
 #update variables
 def on_press(key):
     try:
