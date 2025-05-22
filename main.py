@@ -167,14 +167,6 @@ def start_camera():
     ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
     ax_deflect.legend()
 
-    
-    deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
-    ax_deflect.set_title("Vertical Deflection per Marker")
-    ax_deflect.set_xlabel("Marker Index")
-    ax_deflect.set_ylabel("ΔY(mm))")
-    ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
-    ax_deflect.legend()
-
     ax.set_xlabel("X Position (pixels)")
     ax.set_ylabel("Y Position (pixels)")
     ax.set_title("Live Marker Positions (Y vs X)")
