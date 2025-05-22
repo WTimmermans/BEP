@@ -27,18 +27,18 @@ from threading import Thread, Lock
 # Storage for deflection tracking
 locked_positions = []  # Empty variable to store locked positions.
 deflections = []
-scale = None
+scale = 1
 known_distance_mm = 500
 
 # Shared key state
 key_state = {
     'space_pressed': False,
     'q_pressed': False,
-    'c_pressed': True
+    'c_pressed': False
 }
 key_lock = Lock()
 
-#update variables
+# Update variables
 def on_press(key):
     try:
         with key_lock:
@@ -51,7 +51,7 @@ def on_press(key):
     except AttributeError:
         pass  # Handle special keys if needed
 
-#actual process that listens for input keys
+# Actual process that listens for input keys
 def key_listener():
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
@@ -97,33 +97,40 @@ def detect_circle(frame):
                   
     return output_circles
 
+# Calibrated distance using the centres of two outer circles 
 def calibrate(circles, known_distance_mm):
     global scale
 
+    # Check that there are at least 2 circles
     if len(circles) < 2:
         print("Need at least 2 circles to calibrate!")
         return
     
+    # Select first and last circle 
     circle0 = circles[0]
     circleN = circles[-1]
 
+    # Calculate distances between first and last circle
     dx = abs(circleN[0] - circle0[0])
     dy = abs(circleN[1] - circle0[1])
 
     print(f"dx: {dx}, dy: {dy}")
-
     print(f"circle0: {circle0}, circleN: {circleN}")
-
+    
+    # Calculate the distance (Pythagoras)
     pixel_dist = np.sqrt(dx**2 + dy**2)
 
+    # This handles NaN errors
     if any(np.isnan(val) for val in [*circle0[:2], *circleN[:2]]):
         print("Invalid circle coordinates, calibration aborted.")
         return
  
+    # This handles miscalculatio errors
     if pixel_dist == 0:
         print("Zero pixel distance detected!")
         return
     
+    # Caclulate mm/pixel scale
     scale = known_distance_mm /pixel_dist
     print(f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} mm → scale = {scale:.4f} mm/pixel")
 
@@ -203,16 +210,6 @@ def start_camera():
             line2.set_data(lx, ly)
         else:
             locked_scatter.set_offsets(np.empty((0, 2)))
-        
-      # Measure Difference between locked and currect vertical position
-        if locked_positions and len(circles) == len(locked_positions):
-            deflections = [curr[1] - ref[1] for curr, ref in zip(circles, locked_positions)] # calculate difference
-            deflections_mm = [d/scale for d in deflections] # Scale delflection using calibration
-            deflect_plot.set_data(range(len(deflections)), deflections) # Plot data
-            
-            # Set plot axis sizes
-            ax_deflect.set_xlim(0, len(deflections_mm))
-            ax_deflect.set_ylim(80, -80)
 
         # Measure Difference between locked and currect vertical position
         if scale is not None and locked_positions and len(circles) == len(locked_positions):
@@ -223,12 +220,9 @@ def start_camera():
             ax_deflect.set_xlim(0, len(deflections))
             ax_deflect.set_ylim(100, -100)
 
-
         fig.canvas.draw()
         fig.canvas.flush_events()
         # End Deflection Measure
-
-
 
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
@@ -257,12 +251,7 @@ def start_camera():
             
             if key_state['q_pressed']:
                 break
-
-            if key_state['c_pressed']:
-                key_state['c_pressed'] = False
-                calibrate(circles, known_distance_mm)
-
-            
+  
     cap.release()
     cv2.destroyAllWindows()
     plt.ioff()  # Turn off interactive mode for plots
