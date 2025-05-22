@@ -3,12 +3,12 @@
 
 This is the main script for the tracking of circular stickers with the goal 
 of measuring (vertical) distance change. This then corresponds to the 
-deflection of a beam.
+deflection of a beam. From there the bending moment and shear force are 
+calculated.
 
-Adjust parameters within 'circles' to match markers and situation.
+Adjust parameters within 'circles' to match markers and (lighting) situation.
 
-Created by Steffen Scheelings and Wouter Timmermans 
-For BEP at TU Delft 2025
+Created by Steffen Scheelings and Wouter Timmermans for BEP at TU Delft 2025
 """
 
 # Import relevant modules
@@ -29,6 +29,25 @@ locked_positions = []  # Empty variable to store locked positions.
 deflections = []
 scale = 1
 known_distance_mm = 500
+
+# Dummy variable during testing (to be removed later)
+beam_select = 1
+
+# Beam Properties
+def beam_props(beam_select):
+    if beam_select == 1:
+        E = 69e9 # Young's Modulus Aluminium (Pa)
+        b = 0.01 # Outer length (m)
+        t = 0.001# Thickness (m)
+        I = ((b**4) - (b - 2*t)**4) / 12  # Second moment of interia (m^4)
+        EI = E*I
+        
+    # Use more if statements here to add different beams
+        
+    else:
+        print("Error: Please select beam.")
+
+    return EI
 
 # Shared key state
 key_state = {
@@ -136,6 +155,7 @@ def calibrate(circles, known_distance_mm):
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
+    global deflections
     
     selection = camera_listbox.curselection()
     if not selection:
@@ -179,6 +199,26 @@ def start_camera():
     ax.set_title("Live Marker Positions (Y vs X)")
     ax.invert_yaxis()   # Y increases downward in image coordinates
     ax.legend()         # Show legend   
+    
+    # Second figure for moment and shear
+    fig2, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8,6))
+    plt.show(block=False)
+    
+    moment_plot = ax_moment.scatter([], [], 'g-', label='Bending Moment')
+    shear_plot = ax_shear.scatter([], [], 'm-', label='Shear Force')
+    
+    for axx in [ax_moment, ax_shear]:
+        axx.axhline(0, color='gray', linestyle='--')
+        axx.set_xlim(0, 100)
+        axx.legend()
+        
+    ax_moment.set_title("Moment Diagram")
+    ax_moment.set_ylabel("Moment (N.mm)")   
+    
+    ax_shear.set_title("Shear Diagram")
+    ax_shear.set_ylabel("Shear (N)")    
+    ax_shear.set_xlabel("Langth along beam (mm)")
+    
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -216,13 +256,48 @@ def start_camera():
             deflections = [(curr[1] - ref[1]) * scale for curr, ref in zip(circles, locked_positions)] #in mm
             deflect_plot.set_data(range(len(deflections)), deflections)
             
-            # Set plot axis sizes
+            # Set plot axis size
             ax_deflect.set_xlim(0, len(deflections))
             ax_deflect.set_ylim(100, -100)
-
+        
+        if deflections and len(deflections) >= 3:
+            try:
+                EI = beam_props(beam_select)
+                
+                xs_real = [x*scale for x in xs] #mm
+                y_meters = np.array(deflections) / 1000.0  # Convert mm to m
+                
+                print(xs_real)
+                print(y_meters)
+                
+                dxs = np.diff(xs_real)
+                print("WORKS BABYYY")
+                dx = dxs[0] / 1000.0 # Convert to m
+                
+                d2y = np.gradient(np.gradient(y_meters, dx), dx) # Calculate second derivative of deflection
+                M = EI * d2y                                     # Calculate bending moment (Nm)
+                
+                d3y = np.gradient(d2y, dx)  # Calculate third derivative of deflection
+                V = EI * d3y                # Calculate shear force (N)
+            
+                # OF .set_offsets(x, y) ipv .set_data
+                moment_plot.set_data(xs_real, M*1000)    # In N.mm
+                shear_plot.set_data(xs_real, V)
+            
+                # Set plot sizes
+                ax_moment.set_xlim(min(xs_real), max(xs_real))
+                ax_shear.set_xlim(min(xs_real), max(xs_real))
+                ax_moment.set_ylim(np.min(M)*1100, np.max(M)*1100)
+                ax_shear.set_ylim(np.min(V)*1.1, np.max(V)*1.1)
+                    
+            except Exception as e:
+                print(f"Error in moment/shear calculation: {e}")
+            
         fig.canvas.draw()
         fig.canvas.flush_events()
-        # End Deflection Measure
+        
+        fig2.canvas.draw()
+        fig2.canvas.flush_events()
 
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)

@@ -1,10 +1,7 @@
 ### Ideeën ###
 
 Live video feed met de displacement grafiek overlayed.
-
 Transporteerbaarheid fysieke delen
-
-> Image 'crop' om widescreen te maken zodat onnodige info van boven/beneden wegvalt.
 Save timedomain information for deflection over time. (optional)
 Add beam selection menu (verschillende voorberekende shear en momentwaardes)
 
