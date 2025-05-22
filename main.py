@@ -28,13 +28,17 @@ from threading import Thread, Lock
 locked_positions = []  # Empty variable to store locked positions.
 deflections = []
 scale = 1
+calibration_text = ""
+calibration_counter = 0
 known_distance_mm = 500
+
+beam_list = ["Square aluminium", "C profile aluminium", "Hollow round steel", "Solid round steel", "Solid round POM"]
 
 # Shared key state
 key_state = {
     'space_pressed': False,
     'q_pressed': False,
-    'c_pressed': False
+    'c_pressed': True
 }
 key_lock = Lock()
 
@@ -99,11 +103,13 @@ def detect_circle(frame):
 
 # Calibrated distance using the centres of two outer circles 
 def calibrate(circles, known_distance_mm):
-    global scale
+    global scale, calibration_text, calibration_counter
 
     # Check that there are at least 2 circles
     if len(circles) < 2:
-        print("Need at least 2 circles to calibrate!")
+        calibration_text = "Need at least 2 circles to calibrate!"
+        calibration_counter = 40
+        print(calibration_text)
         return
     
     # Select first and last circle 
@@ -122,38 +128,46 @@ def calibrate(circles, known_distance_mm):
 
     # This handles NaN errors
     if any(np.isnan(val) for val in [*circle0[:2], *circleN[:2]]):
-        print("Invalid circle coordinates, calibration aborted.")
+        calibration_text = "Calibration failed, invalid circle coordinates!"
+        calibration_counter = 40
+        print(calibration_text)
         return
  
-    # This handles miscalculatio errors
+    # This handles miscalculation errors
     if pixel_dist == 0:
-        print("Zero pixel distance detected!")
+        calibration_text = "Calibration failed, zero pixel distance detected!"
+        calibration_counter = 40
+        print(calibration_text)
         return
     
     # Caclulate mm/pixel scale
     scale = known_distance_mm /pixel_dist
-    print(f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} mm → scale = {scale:.4f} mm/pixel")
+    calibration_text = f"Calibration complete: {pixel_dist:.2f} pixels = {known_distance_mm} mm, scale = {scale:.4f} mm/pixel"
+    calibration_counter = 40
+    print(calibration_text)
 
 # Main function: Initialises camera. Circle detection and colour detection.
 def start_camera():
+    global calibration_counter
     
-    selection = camera_listbox.curselection()
-    if not selection:
-        messagebox.showerror("Error", "Please select a camera.")
-        return
+    camera_select = camera_listbox.curselection()
+    beam_select = beam_listbox.curselection()
 
-    selected_index = selection[0]
+    if not camera_select or not beam_select:
+        messagebox.showerror("Error", "Please select a camera and a beam.")
+        return
+    
+    selected_index = camera_select[0]
     cam_index = cameras[selected_index][0]
 
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080) # Set view window size
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    #Resolutie buiten de if statement geplaatst voor netheid
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     if not cap.isOpened():
         messagebox.showerror("Error", "Cannot open camera.")
@@ -224,6 +238,11 @@ def start_camera():
         fig.canvas.flush_events()
         # End Deflection Measure
 
+        #on screen text for the camera feed goes here:
+        if calibration_counter > 0:
+            cv2.putText(frame, calibration_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,255), 2)
+            calibration_counter -= 1
+
         # Show resulting image with circles marked.
         cv2.imshow("Live Webcam Feed, press q to close.", frame)
         
@@ -244,11 +263,8 @@ def start_camera():
             if key_state['c_pressed']:
                 key_state['c_pressed'] = False
                 print("Calibration mode activated.")
-                if circles:
-                    calibrate(circles, known_distance_mm)
-                else:
-                    print("No circles detected to calibrate.")
-            
+                calibrate(circles, known_distance_mm)
+
             if key_state['q_pressed']:
                 break
   
@@ -260,17 +276,26 @@ def start_camera():
 root = tk.Tk()
 root.title("Camera Selector")
 tk.Label(root, text="Select a camera from the list:").pack(pady=(10, 0))
+#beam_list
 
 # Get camera list
 cameras = detect_cameras()  # List of (index, name)
 if platform.system() == "Darwin" and not shutil.which("ffmpeg"):    # Ensures camera works on Mac
     messagebox.showerror("Warning", "ffmpeg is not installed, please install ffmpeg to get camera names.")
 
-# Display camera list and selection window.
-camera_listbox = tk.Listbox(root, height=6, width=50)
+# Display camera list in window.
+camera_listbox = tk.Listbox(root, height=6, width=50, exportselection=False)
 for i, (index, name) in enumerate(cameras):
     camera_listbox.insert(tk.END, f"[{index}] {name}")
 camera_listbox.pack(padx=10, pady=10)
+
+# Display beam list in window
+tk.Label(root, text="Now select a beam:").pack()
+
+beam_listbox = tk.Listbox(root, height=6, width=50, exportselection=False)
+for beam in beam_list:
+    beam_listbox.insert(tk.END, beam)
+beam_listbox.pack(pady=(0, 10))
 
 # start camera (camera initialisation and circle detection) starts when button is pressed.
 start_button = tk.Button(root, text="Start Camera", command=start_camera)
