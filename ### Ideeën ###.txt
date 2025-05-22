@@ -1,7 +1,6 @@
 ### Ideeën ###
 
 Live video feed met de displacement grafiek overlayed.
-Afstand meting?(aruco marker (graveren)[aruco is onderdeel van openCV], standard sticker afstand, calibratie punt, precies graferen)
 
 Transporteerbaarheid fysieke delen
 
@@ -9,29 +8,22 @@ Transporteerbaarheid fysieke delen
 Save timedomain information for deflection over time. (optional)
 Add beam selection menu (verschillende voorberekende shear en momentwaardes)
 
-What happens if circle is 'lost'? Only update new information (How often refreshed?)
-
 ### Nu Verder ###
 
 Verder Fysiek:
 - Andere kokers (selectie halen (makkelijker buigbaar))
 - Extra support
-- camera stand
 - Adapter for flat profiles
 - 'beckies'
 
 Verder Sensor:
-- verbeteren circkel herkenning op 50 cm afstand (reduce flickering, finetune parameters)
-    - Aanpassen parameters, verminder/verwijder blur
-- Afstand calibratie (dmv. punten of vast herkenningspunt)
-- buiging tracken in echte eenheden
 - Deformation live overlay grafiek maken (moment, shear grafieken)
 
 
- #### Dosier benodigdheden ###
+ #### Dossier benodigdheden ###
 - Handleiding van het apparaat
 - technische tekeningen
-- Solid works modellen & FEM
+- Solidworks modellen & FEM
 - De link naar de code (github) 
 - Uitleg bij de code
 - Soort 'tijdlijn' van de ideén en dingen die we getest hebben en waarom wel/niet gebruikt.
