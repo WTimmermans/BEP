@@ -150,14 +150,18 @@ def calibrate(circles, known_distance_mm):
 def start_camera():
     global calibration_counter
     
-    camera_select = camera_listbox.curselection()
-    beam_select = beam_listbox.curselection()
+    camera_selection = camera_listbox.curselection()
+    beam_selection = beam_listbox.curselection()
 
-    if not camera_select or not beam_select:
+    if not camera_selection or not beam_selection:
         messagebox.showerror("Error", "Please select a camera and a beam.")
         return
     
-    selected_index = camera_select[0]
+    print(type(beam_selection))
+
+    #geeft de camera en beam select als 1 nummertje
+    beam_select = beam_selection[0]
+    selected_index = camera_selection[0]
     cam_index = cameras[selected_index][0]
 
     #CAP_DSHOW only works in windows, so skip if on mac or linux
