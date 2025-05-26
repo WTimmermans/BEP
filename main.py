@@ -252,13 +252,12 @@ def start_camera():
     # Second figure for moment and shear
     fig2, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8,6))
     plt.show(block=False)
-    
-    moment_theory_plot, = ax_moment.plot([], [], 'g--', label='Theory Moment')
-    shear_theory_plot, = ax_shear.plot([], [], 'r--', label='Theory Shear')
+    moment_theory_plot, = ax_moment.plot([], [], 'r', label='Theory Moment')
+    shear_theory_plot, = ax_shear.plot([], [], 'r', label='Theory Shear')
 
     
     for axx in [ax_moment, ax_shear]:
-        axx.axhline(0, color='gray', linestyle='--')
+        axx.axhline(0, color='green', linestyle="--")
         axx.set_xlim(0, 100)
         axx.legend()
         
@@ -331,7 +330,7 @@ def start_camera():
                     M_theory = -P_fit * (L - x_m)
                     V_theory = np.full_like(x_m, -P_fit)
 
-                    print(P_opt)                    
+                    print(M_theory, V_theory)
 
                     # ==== Plotting ====
                     moment_theory_plot.set_data(x_mm, M_theory)
@@ -340,11 +339,12 @@ def start_camera():
                     ax_moment.set_xlim(min(x_mm), max(x_mm))
                     ax_shear.set_xlim(min(x_mm), max(x_mm))
 
-                    ax_moment.set_ylim(-50, 50)
-                    ax_shear.set_ylim(-100, 100)
+                    ax_moment.set_ylim(-25, 25)
+                    ax_shear.set_ylim(-40, 40)
 
                     ax_moment.legend()
                     ax_shear.legend()
+
                 except Exception as e:
                     print(f"Error in moment/shear calculation: {e}")
             
