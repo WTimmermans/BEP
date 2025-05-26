@@ -220,6 +220,7 @@ def start_camera():
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
+    
     #Resolutie buiten de if statement geplaatst voor netheid
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -255,7 +256,6 @@ def start_camera():
     moment_theory_plot, = ax_moment.plot([], [], 'r', label='Theory Moment')
     shear_theory_plot, = ax_shear.plot([], [], 'r', label='Theory Shear')
 
-    
     for axx in [ax_moment, ax_shear]:
         axx.axhline(0, color='green', linestyle="--")
         axx.set_xlim(0, 100)
@@ -307,7 +307,7 @@ def start_camera():
             
             # Set plot axis size
             ax_deflect.set_xlim(0, len(deflections))
-            ax_deflect.set_ylim(100, -100)
+            ax_deflect.set_ylim(50, -50)
         
             if deflections and len(deflections) >= 3:
                 try:
@@ -321,6 +321,7 @@ def start_camera():
                     y_m = y_mm / 1000.0
                     L = np.max(x_m)
 
+                    # Bending Moment and Shear Force Diagram
                     def theoretical_deflection(x, P):
                         return (P / (6 * EI)) * (3 * L * x**2 - x**3)
 
@@ -330,7 +331,7 @@ def start_camera():
                     M_theory = -P_fit * (L - x_m)
                     V_theory = np.full_like(x_m, -P_fit)
 
-                    print(M_theory, V_theory)
+                    #print(M_theory, V_theory)
 
                     # ==== Plotting ====
                     moment_theory_plot.set_data(x_mm, M_theory)
