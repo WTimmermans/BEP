@@ -49,14 +49,14 @@ def beam_props(beam_select):
         t = 1e-3  # thickness (m)
         h = 10e-3  # height (m)
         b = 10e-3  # width (m)
-        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2)))
+        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2))) #2 MoI m^4
         
     # Hollow Round Steel    
     elif beam_select == 2:
         E = 200e9 # Young's Modulus Steel (Pa)
         R = 6e-3 # External radius (m)
         r = 5e-3 # Internal radius (m)
-        I = (np.pi/4)*(R**4-r**4) #m^2
+        I = (np.pi/4)*(R**4-r**4) # m^4
     
     # Solid Round Steel
     elif beam_select == 3:
