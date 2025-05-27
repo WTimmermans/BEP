@@ -43,11 +43,11 @@ HOUGH_CIRCLES_PARAMS = {
 
 # Beam Properties Data
 # Structure: {"Name": {"E": Young's Modulus (Pa), "I_func": lambda R, r, b, h, t: I (m^4), "params": {dims}}}
-#lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
-#je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
+# lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
+# je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
 BEAM_PROPERTIES = [
     {
-        "name": "Square aluminium",
+        "name": "Square Aluminium",
         "E": 69e9,
         #een lambda functie is gewoon een def maar dan inline, wat iets minder lines is en meer minder lines is meer beter
         "I_func": lambda b, t, **kwargs: ((b**4) - (b - 2*t)**4) / 12,
@@ -55,23 +55,19 @@ BEAM_PROPERTIES = [
     },
     {
         # U-profile opening leftwards or rightwards
-        "name": "C profile aluminium", # U-profile when measuring deflection in y-dir as per image
+        "name": "C Profile Aluminium", # U-profile when measuring deflection in y-dir as per image
         "E": 69e9,
-        # For a C-channel bent about its strong axis (flanges vertical, web horizontal)
-        # Assuming standard orientation where bending occurs around the x-axis (axis parallel to width b)
-        # I = I_web + 2 * (I_flange_centroidal + A_flange * d_flange^2)
-        # web: (t * (h-2t)^3) / 12
-        # flange: (b * t^3) / 12
-        # A_flange = b*t
-        # d_flange = (h-t)/2
         "I_func": lambda b, h, t, **kwargs: ((t * (h - 2*t)**3) / 12) + 2 * (((b * t**3) / 12) + (b * t) * (((h - t) / 2)**2)),
         "params": {"b": 10e-3, "h": 10e-3, "t": 1e-3} # b=flange width, h=height, t=thickness
     },
     {
          "name": "U Profile Aluminium ", # U profile opening upwards (or downwards)
+         "E": 69e9,
+         "I_func": lambda b, h, t, **kwargs: (1 / 6) * t * h**3 + ((1 /12)*(b - 2 * t) * t**3 + (b - 2 * t) * t * ((h / 2)-(t / 2))**2),
+         "params": {"b": 10e-3, "h": 10e-3, "t": 1e-3} # b=flange width, h=height, t=thickness
     },
     {
-        "name": "Hollow round steel",
+        "name": "Hollow Round Steel",
         "E": 200e9,
         "I_func": lambda R, r, **kwargs: (np.pi/4)*(R**4-r**4),
         "params": {"R": 6e-3, "r": 5e-3} # R=External radius, r=Internal radius
@@ -83,7 +79,7 @@ BEAM_PROPERTIES = [
         "params": {"R": 4e-3} # R=Radius
     },
     {
-        "name": "Solid round POM",
+        "name": "Solid Round POM",
         "E": 2.7e9,
         "I_func": lambda R, **kwargs: (np.pi/4)*R**4,
         "params": {"R": 5e-3} # R=Radius

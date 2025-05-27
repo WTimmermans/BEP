@@ -1,20 +1,17 @@
 ### Ideeën ###
 
 Live video feed met de displacement grafiek overlayed.
-Transporteerbaarheid fysieke delen
 Save timedomain information for deflection over time. (optional)
-Add beam selection menu (verschillende voorberekende shear en momentwaardes)
 
 ### Nu Verder ###
 
 Verder Fysiek:
-- Andere kokers (selectie halen (makkelijker buigbaar))
-- Extra support
-- Adapter for flat profiles
 - 'beckies'
+- Transporteerbaarheid (opvouwen?)
 
 Verder Sensor:
-- Deformation live overlay grafiek maken (moment, shear grafieken)
+- Support toevoegen
+- Overal kunnen drukken toevoegen
 
 
  #### Dossier benodigdheden ###
