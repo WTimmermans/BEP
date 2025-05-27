@@ -35,8 +35,8 @@ FRAME_CROP_X_END = 1080
 HOUGH_CIRCLES_PARAMS = {
     'dp': 1.2,         # Inverse ratio of resolution
     'minDist': 50,     # Minimum distance between detected centres
-    'param1': 250,     # Upper threshold for Canny edge detector (Circle contrast)
-    'param2': 18,      # Threshold for center detection (Circle "perfectness")
+    'param1': 300,     # Upper threshold for Canny edge detector (Circle contrast)
+    'param2': 23,      # Threshold for center detection (Circle "perfectness")
     'minRadius': 1,    # Minimum circle radius
     'maxRadius': 10    # Maximum circle radius
 }
@@ -273,13 +273,13 @@ def start_camera_processing():
     cap_api = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
     cap = cv2.VideoCapture(cam_hw_index, cap_api)
     #Try for higher resolution
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
     #Check actual resolution
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(f"Attempted resolution 1920x1080. Actual: {actual_width}x{actual_height}")
+    print(f"Attempted resolution 1080x720. Actual: {actual_width}x{actual_height}")
 
     if not cap.isOpened():
         messagebox.showerror("Error", f"Cannot open camera index {cam_hw_index}.")
@@ -369,7 +369,7 @@ def start_camera_processing():
             live_scatter.set_offsets(np.c_[xs, ys])
             live_line.set_data(xs, ys)
             ax_positions.set_xlim(0, cropped_frame.shape[1])
-            ax_positions.set_ylim(cropped_frame.shape[0], 0) # Y inverted
+            ax_positions.set_ylim(cropped_frame.shape[0], 0) # Invert y-axis to match OpenCV coordinates
         else:
             live_scatter.set_offsets(np.empty((0,2)))
             live_line.set_data([], [])
@@ -391,13 +391,9 @@ def start_camera_processing():
             marker_indices = range(len(deflections_mm))
             deflection_plot.set_data(marker_indices, deflections_mm)
             
-            if deflections_mm:
-                min_def, max_def = min(deflections_mm), max(deflections_mm)
-                padding = (max_def - min_def) * 0.1 + 1 # Add 1mm padding minimum
-                ax_deflection.set_ylim(min_def - padding, max_def + padding)
-                ax_deflection.set_xlim(-0.5, len(deflections_mm) - 0.5)
-            else:
-                 ax_deflection.set_ylim(-10, 10) # Default if no deflections
+            ax_deflection.set_xlim(-0.5, len(deflections_mm) - 0.5)
+            ax_deflection.set_ylim(50, -50)
+
         else:
             deflection_plot.set_data([],[])
 
@@ -491,19 +487,8 @@ def start_camera_processing():
                 moment_fit_plot.set_data(x_coords_mm, moment_Nm_fit)
                 shear_fit_plot.set_data(x_coords_mm, shear_N_fit)
 
-                if moment_Nm_fit.size > 0:
-                    min_m, max_m = np.min(moment_Nm_fit), np.max(moment_Nm_fit)
-                    padding_m = (max_m - min_m) * 0.1 + 0.1 
-                    ax_moment.set_ylim(min_m - padding_m, max_m + padding_m)
-                else:
-                    ax_moment.set_ylim(-1, 1)
-
-                if shear_N_fit.size > 0:
-                    min_s, max_s = np.min(shear_N_fit), np.max(shear_N_fit)
-                    padding_s = (max_s - min_s) * 0.1 + 0.1 
-                    ax_shear.set_ylim(min_s - padding_s, max_s + padding_s)
-                else:
-                    ax_shear.set_ylim(-1, 1)
+                ax_moment.set_ylim(-25, 25)
+                ax_shear.set_ylim(-40, 40)
                 
                 if x_coords_mm.size > 0:
                     ax_moment.set_xlim(np.min(x_coords_mm) - 5, np.max(x_coords_mm) + 5)
