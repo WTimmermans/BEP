@@ -94,52 +94,6 @@ BEAM_PROPERTIES = [
 ]
 BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 
-<<<<<<< HEAD
-# Beam Properties (Use elif statements to add more profiles)
-def beam_props(beam_select):
-    # Square Aluminium
-    if beam_select == 0:
-        E = 69e9   # Young's Modulus Aluminium (Pa)
-        b = 0.01   # Outer length (m)
-        t = 0.001  # Thickness (m)
-        I = ((b**4) - (b - 2*t)**4) / 12  # Second moment of interia (m^4)
-    
-    # C Profile Aluminium
-    elif beam_select == 1:
-        E = 69e9 # Young's Modulus Aluminium (Pa)
-        t = 1e-3  # thickness (m)
-        h = 10e-3  # height (m)
-        b = 10e-3  # width (m)
-        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2))) #2 MoI m^4
-
-    # Hollow Round Steel    
-    elif beam_select == 2:
-        E = 200e9 # Young's Modulus Steel (Pa)
-        R = 6e-3 # External radius (m)
-        r = 5e-3 # Internal radius (m)
-        I = (np.pi/4)*(R**4-r**4) # m^4
-
-    # Solid Round Steel
-    elif beam_select == 3:
-        E = 200e9 # Young's Modulus Steel (Pa)
-        R = 4e-3 # External radius (m)
-        I = (np.pi/4)*R**4 #m^4
-
-    # Solid Round POM
-    elif beam_select == 4:
-        E = 2700e6 # Young's Modulus POM (Pa)
-        R = 5e-3 # External radius (m)
-        I = (np.pi/4)*R**4 #m^4
-    
-    else:
-        print("Error: Please select beam.")
-    
-    EI = E*I
-    
-    return EI
-
-# Shared key state
-=======
 
 # --- Global State Variables (Shared across threads/callbacks) ---
 locked_positions = []  # Stores locked (reference) circle positions (x, y) in pixels
@@ -148,7 +102,6 @@ pixel_scale = 1.0      # placeholder mm per pixel, determined during calibration
 calibration_info = {"text": "", "counter": 0, "active": False} # For displaying calibration status
 
 # Shared key state for keyboard listener
->>>>>>> main
 key_state = {
     'space_pressed': False,
     'q_pressed': False,
@@ -511,22 +464,12 @@ def start_camera_processing():
     # --- Cleanup ---
     cap.release()
     cv2.destroyAllWindows()
-<<<<<<< HEAD
-    plt.ioff()  # Turn off interactive mode for plots
-    
-    # Close Plots
-    plt.close(fig)
-    plt.close(fig2)
-    
-# Tkinter setup
-=======
     plt.ioff()
     plt.close(fig_positions)
     plt.close(fig_beam_analysis)
     print("Camera and plots closed.")
 
 # --- Tkinter GUI Setup ---
->>>>>>> main
 root = tk.Tk()
 root.title("Beam Deflection Analyzer - Setup")
 
