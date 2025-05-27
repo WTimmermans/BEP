@@ -51,12 +51,16 @@ BEAM_PROPERTIES = [
         "params": {"b": 0.01, "t": 0.001} # b=Outer length, t=Thickness
     },
     {
-        "name": "C profile asluminium", # U-profile when measuring deflection in y-dir as per image
+        "name": "C profile Aluminium", # U-profile opening leftwards or rightwards
         "E": 69e9,
         # For a C-channel bent about its strong axis (flanges vertical, web horizontal)
         # I = I_web + 2 * (I_flange_centroidal + A_flange * d_flange^2)
         "I_func": lambda b, h, t, **kwargs: ((t * (h - 2*t)**3) / 12) + 2 * (((b * t**3) / 12) + (b * t) * (((h - t) / 2)**2)),
         "params": {"b": 10e-3, "h": 10e-3, "t": 1e-3} # b=flange width, h=height, t=thickness
+    },
+    {
+         "name": "U Profile Aluminium "2, # U profile opening upwards (or downwards)
+         "I_func": lambda 
     },
     {
         "name": "Hollow round steel",
