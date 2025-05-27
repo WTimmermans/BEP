@@ -45,11 +45,11 @@ HOUGH_CIRCLES_PARAMS = {
 # Structure: {"Name": {"E": Young's Modulus (Pa), "I_func": lambda R, r, b, h, t: I (m^4), "params": {dims}}}
 # lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
 # je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
+# een lambda functie is gewoon een def maar dan inline, wat iets minder lines is en meer minder lines is meer beter
 BEAM_PROPERTIES = [
     {
         "name": "Square Aluminium",
         "E": 69e9,
-        #een lambda functie is gewoon een def maar dan inline, wat iets minder lines is en meer minder lines is meer beter
         "I_func": lambda b, t, **kwargs: ((b**4) - (b - 2*t)**4) / 12,
         "params": {"b": 0.01, "t": 0.001} # b=Outer length, t=Thickness
     },
@@ -438,7 +438,7 @@ def start_camera_processing():
                             print(f"  Std Dev > Threshold. New force_dot_index: {force_dot_index} (marker {i+1} where load 'a' is applied)")
                             break
                         else:
-                            print(f"  Std Dev <= Threshold. Region considered linear. Continuing search for kink further left.")
+                            print("Std Dev <= Threshold. Region considered linear. Continuing search for kink further left.")
                     if not (current_std_dev > SLOPE_STD_DEV_THRESHOLD): # If loop finished without break
                         print(f"  Loop completed. All tested slope sub-regions were linear or only one region tested. Final force_dot_index: {force_dot_index}")
 
