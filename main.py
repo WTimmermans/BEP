@@ -43,8 +43,8 @@ HOUGH_CIRCLES_PARAMS = {
 
 # Beam Properties Data
 # Structure: {"Name": {"E": Young's Modulus (Pa), "I_func": lambda R, r, b, h, t: I (m^4), "params": {dims}}}
-#lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
-#je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
+# lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
+# je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
 BEAM_PROPERTIES = [
     {
         "name": "Square aluminium",
@@ -212,15 +212,30 @@ def perform_calibration(detected_circles):
 
 # --- Theoretical Deflection Function (Cantilever Beam with Point Load at End) ---
 # This needs to be changed for different situations
-def cantilever_deflection_theory(x_positions_m, load_N, EI_Nm2, length_L_m):
+# --- Theoretical Deflection Function (Cantilever Beam with Point Load at position 'a') ---
+def general_cantilever_deflection_theory(x_positions_m, load_N, load_pos_a_m, EI_Nm2):
     """
-    Calculates theoretical deflection for a cantilever beam with a point load P at the free end.
-    v(x) = (P / (6 * EI)) * (3 * L * x^2 - x^3)
-    where x is the distance from the fixed end.
+    Calculates theoretical deflection for a cantilever beam with a point load P
+    at a distance 'a' from the fixed end. This is a piecewise function.
+
+    v(x) = (P * x^2) / (6 * EI) * (3*a - x)  for 0 <= x <= a
+    v(x) = (P * a^2) / (6 * EI) * (3*x - a)  for a < x
     """
-    # Ensure x is not greater than L to avoid issues with the formula's physical meaning
-    x_clipped = np.clip(x_positions_m, 0, length_L_m)
-    return (load_N / (6 * EI_Nm2)) * (3 * length_L_m * x_clipped**2 - x_clipped**3)
+    x = np.asarray(x_positions_m)
+    a = load_pos_a_m
+    P = load_N
+    EI = EI_Nm2
+
+    # Define the conditions for the two parts of the beam (before and after the load)
+    condlist = [x <= a, x > a]
+    
+    # Define the deflection equations for each respective condition
+    funclist = [
+        lambda x_val: (P * x_val**2 * (3*a - x_val)) / (6 * EI),
+        lambda x_val: (P * a**2 * (3*x_val - a)) / (6 * EI)
+    ]
+    
+    return np.piecewise(x, condlist, funclist)
 
 # --- Main Camera and Processing Function ---
 def start_camera_processing():
@@ -386,63 +401,152 @@ def start_camera_processing():
         else:
             deflection_plot.set_data([],[])
 
-        # --- Beam Analysis (Moment and Shear) ---
-        # Ensure we have enough data points (at least 3 for a curve fit to make sense)
+# --- Beam Analysis (Moment and Shear) ---
+        # Ensure we have enough data points (at least 4 for this derivative-based method)
         # and that calibration has been done (pixel_scale is not its default 1.0)
-        if pixel_scale != 1.0 and locked_positions and len(deflections_mm) >= 3:
+        if pixel_scale != 1.0 and locked_positions and len(deflections_mm) >= 4:
             try:
-                # Get x positions of the *locked* markers in mm from the first locked marker
-                # Assuming the first locked marker is the "fixed end" or reference x=0 for beam theory
-                # This uses the x-coordinates from the *locked_positions* for a stable beam length.
+                # --- Stage 1: Detect Force Location using Derivative Analysis ---
+                print("\n--- Beam Analysis Start ---")
                 x_coords_pixels_locked = np.array([pos[0] for pos in locked_positions])
-                x_coords_mm_beam_axis = (x_coords_pixels_locked - x_coords_pixels_locked[0]) * pixel_scale
+                x_coords_mm = (x_coords_pixels_locked - x_coords_pixels_locked[0]) * pixel_scale
+                y_coords_mm = np.array(deflections_mm)
 
-                y_deflections_mm = np.array(deflections_mm)
+                print(f"X Coords (mm): {x_coords_mm}")
+                print(f"Y Deflections (mm): {y_coords_mm}")
 
-                # Convert to meters for physics formulas
-                x_m = x_coords_mm_beam_axis / 1000.0
-                y_m = y_deflections_mm / 1000.0
+                if len(x_coords_mm) < 2:
+                    raise ValueError("Not enough data points for derivative analysis (dx calculation).")
+
+                dx = np.diff(x_coords_mm)
+                if np.any(dx == 0):
+                    raise ValueError("Zero difference in x-coordinates found; cannot calculate slopes reliably.")
                 
-                beam_length_L_m = np.max(x_m) # Effective length of the tracked part of the beam
+                if len(y_coords_mm) < 2:
+                     raise ValueError("Not enough data points for derivative analysis (dy calculation).")
+                dy = np.diff(y_coords_mm)
+                slopes = dy / dx
+                print(f"Calculated slopes: {slopes}")
 
-                if beam_length_L_m > 0 and EI_current_beam > 0:
-                    # Fit the load P to the observed deflections using the theoretical model
-                    # The curve_fit will find the 'P' that best matches the y_m data for given x_m
-                    popt, pcov = curve_fit(
-                        lambda x, P: cantilever_deflection_theory(x, P, EI_current_beam, beam_length_L_m),
-                        x_m,
-                        y_m,
-                        p0=[1.0] # Initial guess for P in Newtons
-                    )
-                    fitted_load_P = popt[0]
-                    print(f"Fitted Load P: {fitted_load_P:.2f} N")
+                SLOPE_STD_DEV_THRESHOLD = 0.001 # Example value
+                print(f"Slope STD DEV Threshold: {SLOPE_STD_DEV_THRESHOLD}")
 
-                    # Calculate moment and shear based on this fitted load P
-                    # M(x) = -P * (L - x)  (Moment for cantilever with load at end, x from fixed end)
-                    # V(x) = -P            (Shear for cantilever with load at end)
-                    moment_Nm_fit = -fitted_load_P * (beam_length_L_m - x_m)
-                    shear_N_fit = np.full_like(x_m, -fitted_load_P) # Shear is constant
+                force_dot_index = len(locked_positions) - 1
+                print(f"Initial force_dot_index (marker index for load 'a'): {force_dot_index}")
 
-                    # Plotting (convert x back to mm for the plot axis)
-                    moment_fit_plot.set_data(x_coords_mm_beam_axis, moment_Nm_fit)
-                    shear_fit_plot.set_data(x_coords_mm_beam_axis, shear_N_fit)
+                if len(slopes) >= 2:
+                    for i in range(len(slopes) - 2, -1, -1):
+                        slopes_in_linear_region = slopes[i:]
+                        current_std_dev = np.std(slopes_in_linear_region)
+                        print(f"  Checking slopes from index {i} to end: {slopes_in_linear_region}")
+                        print(f"  Std Dev of this region: {current_std_dev:.6f}")
+                        
+                        if current_std_dev > SLOPE_STD_DEV_THRESHOLD:
+                            force_dot_index = i + 1
+                            print(f"  Std Dev > Threshold. New force_dot_index: {force_dot_index} (marker {i+1} where load 'a' is applied)")
+                            break
+                        else:
+                            print(f"  Std Dev <= Threshold. Region considered linear. Continuing search for kink further left.")
+                    if not (current_std_dev > SLOPE_STD_DEV_THRESHOLD): # If loop finished without break
+                        print(f"  Loop completed. All tested slope sub-regions were linear or only one region tested. Final force_dot_index: {force_dot_index}")
 
-                    for ax_bm, data in [(ax_moment, moment_Nm_fit), (ax_shear, shear_N_fit)]:
-                        if data.size > 0:
-                            min_val, max_val = np.min(data), np.max(data)
-                            padding = (max_val - min_val) * 0.1 + 0.1 # Min 0.1 padding
-                            ax_bm.set_ylim(min_val - padding, max_val + padding)
-                            ax_bm.set_xlim(np.min(x_coords_mm_beam_axis), np.max(x_coords_mm_beam_axis))
-                        else: # Default limits
-                            ax_bm.set_xlim(0, KNOWN_DISTANCE_MM)
-                            ax_bm.set_ylim(-10, 10 if ax_bm == ax_moment else -50, 50)
-            except RuntimeError:
-                print("Curve fit failed. Check data or model.")
+                else:
+                    print("  Not enough slopes (less than 2) to perform iterative std dev check. Using default force_dot_index.")
+
+                print(f"Derivative Analysis Final: Force presumed at Marker #{force_dot_index} (0-indexed).")
+
+                # --- Stage 2: Fit for Force Magnitude using the Detected Location ---
+                x_m = x_coords_mm / 1000.0
+                y_m = y_coords_mm / 1000.0
+                
+                detected_pos_a_m = x_m[force_dot_index]
+                print(f"Detected force position 'a': {detected_pos_a_m:.4f} m ({detected_pos_a_m * 1000:.1f} mm from fixed end)")
+                
+                def deflection_model_known_a(x_fit_data, P_fit):
+                    return general_cantilever_deflection_theory(x_fit_data, P_fit, detected_pos_a_m, EI_current_beam)
+
+                p0_guess_val = 1.0
+                if len(y_m) > 0 and np.mean(y_m) < 0:
+                    p0_guess_val = -1.0
+                print(f"Initial guess for P_fit: {p0_guess_val}")
+
+                popt, pcov = curve_fit(deflection_model_known_a, x_m, y_m, p0=[p0_guess_val])
+                fitted_load_P = popt[0]
+
+                print(f"Fitted Load P: {fitted_load_P:.2f} N")
+
+                # --- Stage 3: Calculate Moment and Shear ---
+                moment_Nm_fit = np.piecewise(x_m, 
+                                            [x_m <= detected_pos_a_m, x_m > detected_pos_a_m], 
+                                            [lambda x_val: -fitted_load_P * (detected_pos_a_m - x_val), 
+                                             0.0])
+                
+                shear_N_fit = np.piecewise(x_m, 
+                                          [x_m < detected_pos_a_m, x_m >= detected_pos_a_m], 
+                                          [-fitted_load_P, 
+                                           0.0])
+                # print(f"Calculated moments (Nm): {moment_Nm_fit}") # Optional: can be verbose
+                # print(f"Calculated shear forces (N): {shear_N_fit}") # Optional: can be verbose
+
+                moment_fit_plot.set_data(x_coords_mm, moment_Nm_fit)
+                shear_fit_plot.set_data(x_coords_mm, shear_N_fit)
+
+                if moment_Nm_fit.size > 0:
+                    min_m, max_m = np.min(moment_Nm_fit), np.max(moment_Nm_fit)
+                    padding_m = (max_m - min_m) * 0.1 + 0.1 
+                    ax_moment.set_ylim(min_m - padding_m, max_m + padding_m)
+                else:
+                    ax_moment.set_ylim(-1, 1)
+
+                if shear_N_fit.size > 0:
+                    min_s, max_s = np.min(shear_N_fit), np.max(shear_N_fit)
+                    padding_s = (max_s - min_s) * 0.1 + 0.1 
+                    ax_shear.set_ylim(min_s - padding_s, max_s + padding_s)
+                else:
+                    ax_shear.set_ylim(-1, 1)
+                
+                if x_coords_mm.size > 0:
+                    ax_moment.set_xlim(np.min(x_coords_mm) - 5, np.max(x_coords_mm) + 5)
+                    ax_shear.set_xlim(np.min(x_coords_mm) - 5, np.max(x_coords_mm) + 5)
+                print("--- Beam Analysis End ---")
+
+            except RuntimeError as e_curvefit:
+                print(f"Curve fitting failed for beam analysis: {e_curvefit}")
+                moment_fit_plot.set_data([],[])
+                shear_fit_plot.set_data([],[])
+                ax_moment.set_ylim(-1, 1)
+                ax_shear.set_ylim(-1, 1)
+                print("--- Beam Analysis Error (RuntimeError) ---")
+            except ValueError as e_val:
+                 print(f"Data validation error in beam analysis: {e_val}")
+                 moment_fit_plot.set_data([],[])
+                 shear_fit_plot.set_data([],[])
+                 ax_moment.set_ylim(-1, 1)
+                 ax_shear.set_ylim(-1, 1)
+                 print("--- Beam Analysis Error (ValueError) ---")
             except Exception as e:
                 print(f"Error in beam analysis: {e}")
-        else: # Clear plots if not enough data
+                moment_fit_plot.set_data([],[])
+                shear_fit_plot.set_data([],[])
+                ax_moment.set_ylim(-1, 1)
+                ax_shear.set_ylim(-1, 1)
+                print("--- Beam Analysis Error (Exception) ---")
+        else: 
+            if not (pixel_scale != 1.0):
+                # This message will show only once if calibration never happens or is reset.
+                # Consider moving this specific print to where calibration_info['active'] is handled
+                # if you want it less frequently.
+                # For now, it's fine here to indicate why analysis might be skipped.
+                # print("Beam analysis skipped: Calibration not performed (pixel_scale is default).")
+                pass
+            if not (locked_positions and len(deflections_mm) >= 4):
+                # print("Beam analysis skipped: Not enough locked positions or deflection data points.")
+                pass
+            
             moment_fit_plot.set_data([],[])
             shear_fit_plot.set_data([],[])
+            ax_moment.set_ylim(-1, 1)
+            ax_shear.set_ylim(-1, 1)
 
         # --- Update Figure Canvases ---
         fig_positions.canvas.draw_idle()
