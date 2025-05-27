@@ -22,6 +22,7 @@ import shutil
 import matplotlib.pyplot as plt
 from pynput import keyboard
 from threading import Thread, Lock
+from scipy.optimize import curve_fit
 
 
 # Storage for deflection tracking
@@ -32,6 +33,7 @@ calibration_text = ""
 calibration_counter = 0
 known_distance_mm = 500
 beam_list = ["Square aluminium", "C profile aluminium", "Hollow round steel", "Solid round steel", "Solid round POM"]
+
 # MAYBE AT 'U'SECTION (90 DEG ROTATED C SECTION)
 
 # Beam Properties (Use elif statements to add more profiles)
@@ -42,6 +44,8 @@ def beam_props(beam_select):
         b = 0.01   # Outer length (m)
         t = 0.001  # Thickness (m)
         I = ((b**4) - (b - 2*t)**4) / 12  # Second moment of interia (m^4)
+        EI = E*I
+
     
     # C Profile Aluminium
     elif beam_select == 1:
@@ -49,28 +53,40 @@ def beam_props(beam_select):
         t = 1e-3  # thickness (m)
         h = 10e-3  # height (m)
         b = 10e-3  # width (m)
+<<<<<<< HEAD
         I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2))) #2 MoI m^4
+=======
+        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2)))
+        EI = E*I
+
+>>>>>>> main
         
     # Hollow Round Steel    
     elif beam_select == 2:
         E = 200e9 # Young's Modulus Steel (Pa)
         R = 6e-3 # External radius (m)
         r = 5e-3 # Internal radius (m)
+<<<<<<< HEAD
         I = (np.pi/4)*(R**4-r**4) # m^4
     
+=======
+        I = (np.pi/4)*(R**4-r**4) #m^2
+        EI = E*I
+
+>>>>>>> main
     # Solid Round Steel
     elif beam_select == 3:
         E = 200e9 # Young's Modulus Steel (Pa)
         R = 4e-3 # External radius (m)
         I = (np.pi/4)*R**4 #m^4
-      
+        EI = E*I
+
     # Solid Round POM
     elif beam_select == 4:
-         E = 2700e6 # Young's Modulus POM (Pa)
-         R = 5e-3 # External radius (m)
-         I = (np.pi/4)*R**4 #m^4
-    
-    EI = E*I
+        E = 2700e6 # Young's Modulus POM (Pa)
+        R = 5e-3 # External radius (m)
+        I = (np.pi/4)*R**4 #m^4
+        EI = E*I
     
     else:
         print("Error: Please select beam.")
@@ -114,8 +130,8 @@ def detect_circle(frame):
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,
         dp=1.2,         # Inverse ratio of resolution
         minDist=50,     # Minimum distance between detected centres
-        param1=300,     # Upper threshold for Canny edge detector (Circle contrast)
-        param2=23,      # Threshold for center detection (Circle "perfectness")
+        param1=250,     # Upper threshold for Canny edge detector (Circle contrast)
+        param2=18,      # Threshold for center detection (Circle "perfectness")
         minRadius=1,    # Minimum circle radius
         maxRadius=10    # Maximum circle radius
     )
@@ -200,19 +216,20 @@ def start_camera():
     if not camera_selection or not beam_selection:
         messagebox.showerror("Error", "Please select a camera and a beam.")
         return
-    
-    print(type(beam_selection))
 
     #geeft de camera en beam select als 1 nummertje
     beam_select = beam_selection[0]
     selected_index = camera_selection[0]
     cam_index = cameras[selected_index][0]
 
+    print(beam_props(beam_select))
+
     #CAP_DSHOW only works in windows, so skip if on mac or linux
     if platform.system() == 'Windows':
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
     else:
         cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
+    
     #Resolutie buiten de if statement geplaatst voor netheid
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -245,12 +262,11 @@ def start_camera():
     # Second figure for moment and shear
     fig2, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8,6))
     plt.show(block=False)
-    
-    moment_plot = ax_moment.scatter([], [], 'g-', label='Bending Moment')
-    shear_plot = ax_shear.scatter([], [], 'm-', label='Shear Force')
-    
+    moment_theory_plot, = ax_moment.plot([], [], 'r', label='Theory Moment')
+    shear_theory_plot, = ax_shear.plot([], [], 'r', label='Theory Shear')
+
     for axx in [ax_moment, ax_shear]:
-        axx.axhline(0, color='gray', linestyle='--')
+        axx.axhline(0, color='green', linestyle="--")
         axx.set_xlim(0, 100)
         axx.legend()
         
@@ -300,40 +316,47 @@ def start_camera():
             
             # Set plot axis size
             ax_deflect.set_xlim(0, len(deflections))
-            ax_deflect.set_ylim(100, -100)
+            ax_deflect.set_ylim(50, -50)
         
-        if deflections and len(deflections) >= 3:
-            try:
-                EI = beam_props(beam_select)
-                
-                xs_real = [x*scale for x in xs] #mm
-                y_meters = np.array(deflections) / 1000.0  # Convert mm to m
-                
-                print(xs_real)
-                print(y_meters)
-                
-                dxs = np.diff(xs_real)
-                print("WORKS BABYYY")
-                dx = dxs[0] / 1000.0 # Convert to m
-                
-                d2y = np.gradient(np.gradient(y_meters, dx), dx) # Calculate second derivative of deflection
-                M = EI * d2y                                     # Calculate bending moment (Nm)
-                
-                d3y = np.gradient(d2y, dx)  # Calculate third derivative of deflection
-                V = EI * d3y                # Calculate shear force (N)
-            
-                # OF .set_offsets(x, y) ipv .set_data
-                moment_plot.set_data(xs_real, M*1000)    # In N.mm
-                shear_plot.set_data(xs_real, V)
-            
-                # Set plot sizes
-                ax_moment.set_xlim(min(xs_real), max(xs_real))
-                ax_shear.set_xlim(min(xs_real), max(xs_real))
-                ax_moment.set_ylim(np.min(M)*1100, np.max(M)*1100)
-                ax_shear.set_ylim(np.min(V)*1.1, np.max(V)*1.1)
-                    
-            except Exception as e:
-                print(f"Error in moment/shear calculation: {e}")
+            if deflections and len(deflections) >= 3:
+                try:
+                    EI = beam_props(beam_select)
+                    xs_real = [x * scale for x in xs]
+                    x_mm = np.array(xs_real)
+                    y_mm = np.array(deflections)
+
+                    # Convert to meters
+                    x_m = x_mm / 1000.0
+                    y_m = y_mm / 1000.0
+                    L = np.max(x_m)
+
+                    # Bending Moment and Shear Force Diagram
+                    def theoretical_deflection(x, P):
+                        return (P / (6 * EI)) * (3 * L * x**2 - x**3)
+
+                    P_opt, _ = curve_fit(lambda x, P: theoretical_deflection(x, P), x_m, y_m)
+                    P_fit = P_opt[0]
+
+                    M_theory = -P_fit * (L - x_m)
+                    V_theory = np.full_like(x_m, -P_fit)
+
+                    #print(M_theory, V_theory)
+
+                    # ==== Plotting ====
+                    moment_theory_plot.set_data(x_mm, M_theory)
+                    shear_theory_plot.set_data(x_mm, V_theory)
+
+                    ax_moment.set_xlim(min(x_mm), max(x_mm))
+                    ax_shear.set_xlim(min(x_mm), max(x_mm))
+
+                    ax_moment.set_ylim(-25, 25)
+                    ax_shear.set_ylim(-40, 40)
+
+                    ax_moment.legend()
+                    ax_shear.legend()
+
+                except Exception as e:
+                    print(f"Error in moment/shear calculation: {e}")
             
         fig.canvas.draw()
         fig.canvas.flush_events()
