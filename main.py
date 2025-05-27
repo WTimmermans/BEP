@@ -43,10 +43,13 @@ HOUGH_CIRCLES_PARAMS = {
 
 # Beam Properties Data
 # Structure: {"Name": {"E": Young's Modulus (Pa), "I_func": lambda R, r, b, h, t: I (m^4), "params": {dims}}}
+#lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
+#je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
 BEAM_PROPERTIES = [
     {
         "name": "Square aluminium",
         "E": 69e9,
+        #een lambda functie is gewoon een def maar dan inline, wat minder kut is voor je computer
         "I_func": lambda b, t, **kwargs: ((b**4) - (b - 2*t)**4) / 12,
         "params": {"b": 0.01, "t": 0.001} # b=Outer length, t=Thickness
     },
@@ -80,7 +83,10 @@ BEAM_PROPERTIES = [
         "E": 2.7e9, # Corrected from 2700e6 to 2.7e9 for consistency
         "I_func": lambda R, **kwargs: (np.pi/4)*R**4,
         "params": {"R": 5e-3} # R=Radius
-    }
+    },
+    #{
+        #"name": "etc"
+    #}
 ]
 BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 
@@ -88,7 +94,7 @@ BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 # --- Global State Variables (Shared across threads/callbacks) ---
 locked_positions = []  # Stores locked (reference) circle positions (x, y) in pixels
 deflections_mm = []    # Stores calculated deflections (current_y - locked_y) * scale in mm
-pixel_scale = 1.0      # mm per pixel, determined during calibration
+pixel_scale = 1.0      # placeholder mm per pixel, determined during calibration
 calibration_info = {"text": "", "counter": 0, "active": False} # For displaying calibration status
 
 # Shared key state for keyboard listener
@@ -103,6 +109,7 @@ key_lock = Lock()
 # --- Beam Properties Calculation ---
 def get_beam_EI(beam_index):
     """Calculates EI (Flexural Rigidity) for the selected beam."""
+    #Checkt nu tegelijk of de selectie die je hebt gemaakt klopt en rekent dan de EI uit
     if 0 <= beam_index < len(BEAM_PROPERTIES):
         beam = BEAM_PROPERTIES[beam_index]
         E = beam["E"]
@@ -129,6 +136,7 @@ def on_press(key):
         pass # Ignore special keys not handled
 
 def key_listener_thread():
+    #pleurt de key listener in een aparte thread
     """Listens for keyboard input in a separate thread."""
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
@@ -176,6 +184,7 @@ def perform_calibration(detected_circles):
     circleN = detected_circles[-1]   # Last circle (rightmost)
 
     # Ensure coordinates are valid numbers
+    #niet per se nodig, maar ook niet heel erg om erin te houden voor het geval de calibratie weer kut gaat doen
     if any(np.isnan(val) for val in [*circle0[:2], *circleN[:2]]):
         calibration_info.update({"text": "Calibration failed: Invalid circle coordinates!", "counter": 60})
         print(calibration_info["text"])
@@ -199,6 +208,7 @@ def perform_calibration(detected_circles):
     return True
 
 # --- Theoretical Deflection Function (Cantilever Beam with Point Load at End) ---
+# PAS AAN VOOR ANDERE SITUATIES
 def cantilever_deflection_theory(x_positions_m, load_N, EI_Nm2, length_L_m):
     """
     Calculates theoretical deflection for a cantilever beam with a point load P at the free end.
