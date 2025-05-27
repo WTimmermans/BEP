@@ -54,7 +54,7 @@ BEAM_PROPERTIES = [
         "params": {"b": 0.01, "t": 0.001} # b=Outer length, t=Thickness
     },
     {
-        "name": "C profile aluminium", # U-profile when measuring deflection in y-dir as per image
+        "name": "C profile asluminium", # U-profile when measuring deflection in y-dir as per image
         "E": 69e9,
         # For a C-channel bent about its strong axis (flanges vertical, web horizontal)
         # Assuming standard orientation where bending occurs around the x-axis (axis parallel to width b)
@@ -91,7 +91,6 @@ BEAM_PROPERTIES = [
 BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 
 
-<<<<<<< HEAD
 # --- Global State Variables (Shared across threads/callbacks) ---
 locked_positions = []  # Stores locked (reference) circle positions (x, y) in pixels
 deflections_mm = []    # Stores calculated deflections (current_y - locked_y) * scale in mm
@@ -99,56 +98,6 @@ pixel_scale = 1.0      # placeholder mm per pixel, determined during calibration
 calibration_info = {"text": "", "counter": 0, "active": False} # For displaying calibration status
 
 # Shared key state for keyboard listener
-=======
-    
-    # C Profile Aluminium
-    elif beam_select == 1:
-        E = 69e9 # Young's Modulus Aluminium (Pa)
-        t = 1e-3  # thickness (m)
-        h = 10e-3  # height (m)
-        b = 10e-3  # width (m)
-<<<<<<< HEAD
-        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2))) #2 MoI m^4
-=======
-        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2)))
-        EI = E*I
-
->>>>>>> main
-        
-    # Hollow Round Steel    
-    elif beam_select == 2:
-        E = 200e9 # Young's Modulus Steel (Pa)
-        R = 6e-3 # External radius (m)
-        r = 5e-3 # Internal radius (m)
-<<<<<<< HEAD
-        I = (np.pi/4)*(R**4-r**4) # m^4
-    
-=======
-        I = (np.pi/4)*(R**4-r**4) #m^2
-        EI = E*I
-
->>>>>>> main
-    # Solid Round Steel
-    elif beam_select == 3:
-        E = 200e9 # Young's Modulus Steel (Pa)
-        R = 4e-3 # External radius (m)
-        I = (np.pi/4)*R**4 #m^4
-        EI = E*I
-
-    # Solid Round POM
-    elif beam_select == 4:
-        E = 2700e6 # Young's Modulus POM (Pa)
-        R = 5e-3 # External radius (m)
-        I = (np.pi/4)*R**4 #m^4
-        EI = E*I
-    
-    else:
-        print("Error: Please select beam.")
-
-    return EI
-
-# Shared key state
->>>>>>> Steffen
 key_state = {
     'space_pressed': False,
     'q_pressed': False,
@@ -285,6 +234,22 @@ def start_camera_processing():
         messagebox.showerror("Error", "Please select a camera and a beam.")
         return
 
+    #geeft de camera en beam select als 1 nummertje
+    beam_select = beam_selection[0]
+    selected_index = camera_selection[0]
+    cam_index = cameras[selected_index][0]
+
+    print(beam_props(beam_select))
+
+    #CAP_DSHOW only works in windows, so skip if on mac or linux
+    if platform.system() == 'Windows':
+        cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
+    else:
+        cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
+    
+    #Resolutie buiten de if statement geplaatst voor netheid
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     selected_beam_idx = beam_selection_idx[0]
     selected_cam_idx_in_list = camera_selection[0]
     
@@ -295,7 +260,6 @@ def start_camera_processing():
     cam_hw_index = available_cameras[selected_cam_idx_in_list][0]
 
 
-<<<<<<< HEAD
     EI_current_beam = get_beam_EI(selected_beam_idx)
     if EI_current_beam is None:
         return # Error already shown by get_beam_EI
@@ -312,22 +276,42 @@ def start_camera_processing():
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"Attempted resolution 1920x1080. Actual: {actual_width}x{actual_height}")
 
-=======
-    #CAP_DSHOW only works in windows, so skip if on mac or linux
-    if platform.system() == 'Windows':
-        cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
-    else:
-        cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
-    
-    #Resolutie buiten de if statement geplaatst voor netheid
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
->>>>>>> Steffen
 
     if not cap.isOpened():
         messagebox.showerror("Error", f"Cannot open camera index {cam_hw_index}.")
         return    
     
+    # Setup for live plotting
+    plt.ion()  # Interactive mode on
+    fig, (ax, ax_deflect) = plt.subplots(1, 2, figsize=(10,5))
+    plt.show(block=False)
+    scatter = ax.scatter([], [], label='Live')
+    locked_scatter = ax.scatter([], [], c='red', marker='x', label='Locked')
+    line, = ax.plot([], [], 'b-', lw=1)  # 'b-' = blue line, lw=1 for line width for live
+    line2, =ax.plot([],[], 'r-', lw=1)   # 'r-' = red line, lw=1 for line width for locked
+    deflect_plot = ax_deflect.plot([], [], 'ro-', label='ΔY (Deflection)')[0]
+    ax_deflect.set_title("Vertical Deflection per Marker")
+    ax_deflect.set_xlabel("Marker Index")
+    ax_deflect.set_ylabel("ΔY (mm)")
+    ax_deflect.axhline(0, color='gray', linestyle='--', lw=1)
+    ax_deflect.legend()
+
+    ax.set_xlabel("X Position (pixels)")
+    ax.set_ylabel("Y Position (pixels)")
+    ax.set_title("Live Marker Positions (Y vs X)")
+    ax.invert_yaxis()   # Y increases downward in image coordinates
+    ax.legend()         # Show legend   
+    
+    # Second figure for moment and shear
+    fig2, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8,6))
+    plt.show(block=False)
+    moment_theory_plot, = ax_moment.plot([], [], 'r', label='Theory Moment')
+    shear_theory_plot, = ax_shear.plot([], [], 'r', label='Theory Shear')
+
+    for axx in [ax_moment, ax_shear]:
+        axx.axhline(0, color='green', linestyle="--")
+        axx.set_xlim(0, 100)
+        axx.legend()
     # --- Plotting Setup ---
     plt.ion()
     fig_positions, (ax_positions, ax_deflection) = plt.subplots(1, 2, figsize=(12, 6))
@@ -343,7 +327,6 @@ def start_camera_processing():
     ax_positions.legend()
     ax_positions.grid(True)
 
-<<<<<<< HEAD
     deflection_plot, = ax_deflection.plot([], [], 'mo-', label='Deflection (ΔY)') # Magenta
     ax_deflection.set_title("Vertical Deflection per Marker")
     ax_deflection.set_xlabel("Marker Index")
@@ -361,24 +344,6 @@ def start_camera_processing():
         ax_bm.axhline(0, color='gray', linestyle='--')
         ax_bm.legend()
         ax_bm.grid(True)
-=======
-    ax.set_xlabel("X Position (pixels)")
-    ax.set_ylabel("Y Position (pixels)")
-    ax.set_title("Live Marker Positions (Y vs X)")
-    ax.invert_yaxis()   # Y increases downward in image coordinates
-    ax.legend()         # Show legend   
-    
-    # Second figure for moment and shear
-    fig2, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8,6))
-    plt.show(block=False)
-    moment_theory_plot, = ax_moment.plot([], [], 'r', label='Theory Moment')
-    shear_theory_plot, = ax_shear.plot([], [], 'r', label='Theory Shear')
-
-    for axx in [ax_moment, ax_shear]:
-        axx.axhline(0, color='green', linestyle="--")
-        axx.set_xlim(0, 100)
-        axx.legend()
->>>>>>> Steffen
         
     ax_moment.set_title("Bending Moment Diagram")
     ax_moment.set_ylabel("Moment (N·m)") # Using N.m
@@ -441,14 +406,13 @@ def start_camera_processing():
             locked_scatter.set_offsets(np.column_stack((lx, ly)))
             locked_line.set_data(lx, ly)
         else:
-            locked_scatter.set_offsets(np.empty((0,2)))
-            locked_line.set_data([],[])
+            locked_scatter.set_offsets(np.empty((0, 2)))
+
+        # Measure Difference between locked and currect vertical position
+        if scale is not None and locked_positions and len(circles) == len(locked_positions):
+            deflections = [(curr[1] - ref[1]) * scale for curr, ref in zip(circles, locked_positions)] #in mm
+            deflect_plot.set_data(range(len(deflections)), deflections)
             
-<<<<<<< HEAD
-        # --- Calculate and Plot Deflections ---
-        if pixel_scale != 1.0 and locked_positions and len(current_circles) == len(locked_positions):
-            deflections_mm = [(curr[1] - ref[1]) * pixel_scale for curr, ref in zip(current_circles, locked_positions)]
-=======
             # Set plot axis size
             ax_deflect.set_xlim(0, len(deflections))
             ax_deflect.set_ylim(50, -50)
@@ -492,7 +456,18 @@ def start_camera_processing():
 
                 except Exception as e:
                     print(f"Error in moment/shear calculation: {e}")
->>>>>>> Steffen
+            
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        
+        fig2.canvas.draw()
+        fig2.canvas.flush_events()
+            locked_scatter.set_offsets(np.empty((0,2)))
+            locked_line.set_data([],[])
+            
+        # --- Calculate and Plot Deflections ---
+        if pixel_scale != 1.0 and locked_positions and len(current_circles) == len(locked_positions):
+            deflections_mm = [(curr[1] - ref[1]) * pixel_scale for curr, ref in zip(current_circles, locked_positions)]
             
             marker_indices = range(len(deflections_mm))
             deflection_plot.set_data(marker_indices, deflections_mm)
