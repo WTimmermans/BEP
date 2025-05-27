@@ -91,6 +91,7 @@ BEAM_PROPERTIES = [
 BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 
 
+<<<<<<< HEAD
 # --- Global State Variables (Shared across threads/callbacks) ---
 locked_positions = []  # Stores locked (reference) circle positions (x, y) in pixels
 deflections_mm = []    # Stores calculated deflections (current_y - locked_y) * scale in mm
@@ -98,6 +99,56 @@ pixel_scale = 1.0      # placeholder mm per pixel, determined during calibration
 calibration_info = {"text": "", "counter": 0, "active": False} # For displaying calibration status
 
 # Shared key state for keyboard listener
+=======
+    
+    # C Profile Aluminium
+    elif beam_select == 1:
+        E = 69e9 # Young's Modulus Aluminium (Pa)
+        t = 1e-3  # thickness (m)
+        h = 10e-3  # height (m)
+        b = 10e-3  # width (m)
+<<<<<<< HEAD
+        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2))) #2 MoI m^4
+=======
+        I = ((1/12)*t*(h-2*t)**3)+2*(((1/12)*b*t**3)+((b*t)*(((h/2)-(t/2))**2)))
+        EI = E*I
+
+>>>>>>> main
+        
+    # Hollow Round Steel    
+    elif beam_select == 2:
+        E = 200e9 # Young's Modulus Steel (Pa)
+        R = 6e-3 # External radius (m)
+        r = 5e-3 # Internal radius (m)
+<<<<<<< HEAD
+        I = (np.pi/4)*(R**4-r**4) # m^4
+    
+=======
+        I = (np.pi/4)*(R**4-r**4) #m^2
+        EI = E*I
+
+>>>>>>> main
+    # Solid Round Steel
+    elif beam_select == 3:
+        E = 200e9 # Young's Modulus Steel (Pa)
+        R = 4e-3 # External radius (m)
+        I = (np.pi/4)*R**4 #m^4
+        EI = E*I
+
+    # Solid Round POM
+    elif beam_select == 4:
+        E = 2700e6 # Young's Modulus POM (Pa)
+        R = 5e-3 # External radius (m)
+        I = (np.pi/4)*R**4 #m^4
+        EI = E*I
+    
+    else:
+        print("Error: Please select beam.")
+
+    return EI
+
+# Shared key state
+>>>>>>> Steffen
 key_state = {
     'space_pressed': False,
     'q_pressed': False,
@@ -244,6 +295,7 @@ def start_camera_processing():
     cam_hw_index = available_cameras[selected_cam_idx_in_list][0]
 
 
+<<<<<<< HEAD
     EI_current_beam = get_beam_EI(selected_beam_idx)
     if EI_current_beam is None:
         return # Error already shown by get_beam_EI
@@ -260,6 +312,17 @@ def start_camera_processing():
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"Attempted resolution 1920x1080. Actual: {actual_width}x{actual_height}")
 
+=======
+    #CAP_DSHOW only works in windows, so skip if on mac or linux
+    if platform.system() == 'Windows':
+        cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)  # For Windows, try DirectShow
+    else:
+        cap = cv2.VideoCapture(cam_index)  # Default for macOS/Linux
+    
+    #Resolutie buiten de if statement geplaatst voor netheid
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+>>>>>>> Steffen
 
     if not cap.isOpened():
         messagebox.showerror("Error", f"Cannot open camera index {cam_hw_index}.")
@@ -280,6 +343,7 @@ def start_camera_processing():
     ax_positions.legend()
     ax_positions.grid(True)
 
+<<<<<<< HEAD
     deflection_plot, = ax_deflection.plot([], [], 'mo-', label='Deflection (ΔY)') # Magenta
     ax_deflection.set_title("Vertical Deflection per Marker")
     ax_deflection.set_xlabel("Marker Index")
@@ -297,6 +361,24 @@ def start_camera_processing():
         ax_bm.axhline(0, color='gray', linestyle='--')
         ax_bm.legend()
         ax_bm.grid(True)
+=======
+    ax.set_xlabel("X Position (pixels)")
+    ax.set_ylabel("Y Position (pixels)")
+    ax.set_title("Live Marker Positions (Y vs X)")
+    ax.invert_yaxis()   # Y increases downward in image coordinates
+    ax.legend()         # Show legend   
+    
+    # Second figure for moment and shear
+    fig2, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8,6))
+    plt.show(block=False)
+    moment_theory_plot, = ax_moment.plot([], [], 'r', label='Theory Moment')
+    shear_theory_plot, = ax_shear.plot([], [], 'r', label='Theory Shear')
+
+    for axx in [ax_moment, ax_shear]:
+        axx.axhline(0, color='green', linestyle="--")
+        axx.set_xlim(0, 100)
+        axx.legend()
+>>>>>>> Steffen
         
     ax_moment.set_title("Bending Moment Diagram")
     ax_moment.set_ylabel("Moment (N·m)") # Using N.m
@@ -362,9 +444,55 @@ def start_camera_processing():
             locked_scatter.set_offsets(np.empty((0,2)))
             locked_line.set_data([],[])
             
+<<<<<<< HEAD
         # --- Calculate and Plot Deflections ---
         if pixel_scale != 1.0 and locked_positions and len(current_circles) == len(locked_positions):
             deflections_mm = [(curr[1] - ref[1]) * pixel_scale for curr, ref in zip(current_circles, locked_positions)]
+=======
+            # Set plot axis size
+            ax_deflect.set_xlim(0, len(deflections))
+            ax_deflect.set_ylim(50, -50)
+        
+            if deflections and len(deflections) >= 3:
+                try:
+                    EI = beam_props(beam_select)
+                    xs_real = [x * scale for x in xs]
+                    x_mm = np.array(xs_real)
+                    y_mm = np.array(deflections)
+
+                    # Convert to meters
+                    x_m = x_mm / 1000.0
+                    y_m = y_mm / 1000.0
+                    L = np.max(x_m)
+
+                    # Bending Moment and Shear Force Diagram
+                    def theoretical_deflection(x, P):
+                        return (P / (6 * EI)) * (3 * L * x**2 - x**3)
+
+                    P_opt, _ = curve_fit(lambda x, P: theoretical_deflection(x, P), x_m, y_m)
+                    P_fit = P_opt[0]
+
+                    M_theory = -P_fit * (L - x_m)
+                    V_theory = np.full_like(x_m, -P_fit)
+
+                    #print(M_theory, V_theory)
+
+                    # ==== Plotting ====
+                    moment_theory_plot.set_data(x_mm, M_theory)
+                    shear_theory_plot.set_data(x_mm, V_theory)
+
+                    ax_moment.set_xlim(min(x_mm), max(x_mm))
+                    ax_shear.set_xlim(min(x_mm), max(x_mm))
+
+                    ax_moment.set_ylim(-25, 25)
+                    ax_shear.set_ylim(-40, 40)
+
+                    ax_moment.legend()
+                    ax_shear.legend()
+
+                except Exception as e:
+                    print(f"Error in moment/shear calculation: {e}")
+>>>>>>> Steffen
             
             marker_indices = range(len(deflections_mm))
             deflection_plot.set_data(marker_indices, deflections_mm)
