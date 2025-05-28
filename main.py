@@ -25,13 +25,13 @@ from threading import Thread, Lock
 from scipy.optimize import curve_fit
 
 # --- Configuration Constants ---
-KNOWN_DISTANCE_MM = 500.0  # Known distance for calibration in mm
-FRAME_CROP_Y_START = 300
+KNOWN_DISTANCE_MM = 500.0   # Known distance for calibration in mm
+FRAME_CROP_Y_START = 300    # Crop frame to eliminate ambient noise
 FRAME_CROP_Y_END = 570
 FRAME_CROP_X_START = 0
 FRAME_CROP_X_END = 1080
 
-# HoughCircles parameters
+# --- HoughCircles parameters ---
 HOUGH_CIRCLES_PARAMS = {
     'dp': 1.2,         # Inverse ratio of resolution
     'minDist': 50,     # Minimum distance between detected centres
@@ -41,11 +41,10 @@ HOUGH_CIRCLES_PARAMS = {
     'maxRadius': 10    # Maximum circle radius
 }
 
-# Beam Properties Data
+# --- Beam Properties Data ---
 # Structure: {"Name": {"E": Young's Modulus (Pa), "I_func": lambda R, r, b, h, t: I (m^4), "params": {dims}}}
-# lijst van dictionaries, gebruikt minder geheugen dan de andere methode, en makkelijk aan toe te voegen (extra entry in de dictionary)
-# je hoeft alleen de benodigde parameters in te voegen, de rest wordt genegeerd
-# een lambda functie is gewoon een def maar dan inline, wat iets minder lines is en meer minder lines is meer beter
+# List of dictionaries. Uses less memory than other method and is easier to expand.
+# Lambda function is just a def but inline. Leads to less lines.
 BEAM_PROPERTIES = [
     {
         "name": "Square Aluminium",
@@ -83,13 +82,10 @@ BEAM_PROPERTIES = [
         "E": 2.7e9,
         "I_func": lambda R, **kwargs: (np.pi/4)*R**4,
         "params": {"R": 5e-3} # R=Radius
-    },
-    #{
-        #"name": "etc"
-    #}
+    }
 ]
-BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 
+BEAM_LIST_NAMES = [beam["name"] for beam in BEAM_PROPERTIES]
 
 # --- Global State Variables (Shared across threads/callbacks) ---
 locked_positions = []  # Stores locked (reference) circle positions (x, y) in pixels
@@ -103,13 +99,12 @@ key_state = {
     'q_pressed': False,
     'c_pressed': False
 }
-key_lock = Lock()
 
+key_lock = Lock()
 
 # --- Beam Properties Calculation ---
 def get_beam_EI(beam_index):
     """Calculates EI (Flexural Rigidity) for the selected beam."""
-    #Checkt nu tegelijk of de selectie die je hebt gemaakt klopt en rekent dan de EI uit
     if 0 <= beam_index < len(BEAM_PROPERTIES):
         beam = BEAM_PROPERTIES[beam_index]
         E = beam["E"]
@@ -133,10 +128,9 @@ def on_press(key):
                 elif key.char == 'c':
                     key_state['c_pressed'] = True
     except AttributeError:
-        pass # Ignore special keys not handled
+        pass # Ignore other keys not handled
 
 def key_listener_thread():
-    #pleurt de key listener in een aparte thread
     """Listens for keyboard input in a separate thread."""
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
@@ -144,9 +138,11 @@ def key_listener_thread():
 # --- Image Processing ---
 def detect_circles_in_frame(frame):
     """Detects circles in a given frame."""
+    # Grayscale and blur the frame
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.medianBlur(gray, 5)
     
+    # Perform Circle Detection
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, **HOUGH_CIRCLES_PARAMS)
 
     output_circles = []
@@ -163,16 +159,16 @@ def detect_circles_in_frame(frame):
                 output_circles.append((x, y, r)) # (x_centre, y_centre, radius)
                 
                 # Draw detected circles and centers on the frame
-                cv2.circle(frame, (int(x), int(y)), int(r), (0, 255, 0), 2) # Green circle
-                cv2.circle(frame, (int(x), int(y)), 2, (0, 0, 255), 3) # Red centre
-                cv2.putText(frame, f"#{i} ({int(x)},{int(y)})", (int(x) + 10, int(y)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1) #Blue text
-                            
+                cv2.circle(frame, (int(x), int(y)), int(r), (0, 255, 0), 2)     # Green circle
+                cv2.circle(frame, (int(x), int(y)), 2, (0, 0, 255), 3)          # Red centre
+                cv2.putText(frame, f"#{i} ({int(x)},{int(y)})", (int(x), int(y) + 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)      # Blue text
     return output_circles
 
 # --- Calibration ---
 def perform_calibration(detected_circles):
-    """Calibrates the pixel_scale using the two outermost detected circles."""
+    """Calibrates the pixel_scale using the two outermost detected circles.
+       These are placed a known distance apart."""
     global pixel_scale, calibration_info
 
     if len(detected_circles) < 2:
@@ -180,14 +176,8 @@ def perform_calibration(detected_circles):
         print(calibration_info["text"])
         return False
 
-    circle0 = detected_circles[0] #First circle (leftmost thanks to sorting)
-    circleN = detected_circles[-1] #Last circle (rightmost thanks to sorting)
-
-    # Ensure coordinates are valid, not strictly nessecary anymore, but also not harmful, so just keep it
-    if any(np.isnan(val) for val in [*circle0[:2], *circleN[:2]]):
-        calibration_info.update({"text": "Calibration failed: Invalid circle coordinates!", "counter": 60})
-        print(calibration_info["text"])
-        return False
+    circle0 = detected_circles[0]   # First circle (leftmost due to sorting)
+    circleN = detected_circles[-1]  # Last circle (rightmost due to sorting)
 
     dx = abs(circleN[0] - circle0[0])
     dy = abs(circleN[1] - circle0[1])
@@ -206,8 +196,6 @@ def perform_calibration(detected_circles):
     print(calibration_info["text"])
     return True
 
-# --- Theoretical Deflection Function (Cantilever Beam with Point Load at End) ---
-# This needs to be changed for different situations
 # --- Theoretical Deflection Function (Cantilever Beam with Point Load at position 'a') ---
 def general_cantilever_deflection_theory(x_positions_m, load_N, load_pos_a_m, EI_Nm2):
     """
@@ -236,6 +224,7 @@ def general_cantilever_deflection_theory(x_positions_m, load_N, load_pos_a_m, EI
 # --- Main Camera and Processing Function ---
 def start_camera_processing():
     """Initializes camera, performs detection, calculation, and plotting."""
+    # --- Initialise Camera ---
     global locked_positions, deflections_mm, pixel_scale, calibration_info, key_state
 
     with key_lock:
@@ -255,24 +244,21 @@ def start_camera_processing():
     if not (0 <= selected_cam_idx_in_list < len(available_cameras)):
         messagebox.showerror("Error", "Invalid camera selection from list.")
         return
-    # RESOLVED: Changed `cameras` to `available_cameras`
     cam_hw_index = available_cameras[selected_cam_idx_in_list][0]
-
-    # RESOLVED: Removed redundant and erroneous call to `beam_props`
 
     EI_current_beam = get_beam_EI(selected_beam_idx)
     if EI_current_beam is None:
-        return #Error already shown in get_beam_EI
+        return # Error already shown in get_beam_EI
 
     print(f"Selected Beam: {BEAM_LIST_NAMES[selected_beam_idx]}, EI: {EI_current_beam:.2f} Nm^2")
 
     cap_api = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
     cap = cv2.VideoCapture(cam_hw_index, cap_api)
-    #Try for higher resolution
+    # Try for higher resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
-    #Check actual resolution
+    # Check actual resolution
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"Attempted resolution 1080x720. Actual: {actual_width}x{actual_height}")
@@ -283,11 +269,12 @@ def start_camera_processing():
     
     # --- Plotting Setup ---
     plt.ion()
+    # Setup for circle position plot
     fig_positions, (ax_positions, ax_deflection) = plt.subplots(1, 2, figsize=(12, 6))
     live_scatter = ax_positions.scatter([], [], label='Live Markers')
     locked_scatter = ax_positions.scatter([], [], c='red', marker='x', label='Locked Markers')
-    live_line, = ax_positions.plot([], [], 'b-', lw=1, label='Live Path')
-    locked_line, = ax_positions.plot([], [], 'r-', lw=1, label='Locked Path')
+    live_line, = ax_positions.plot([], [], 'b-', lw=1)
+    locked_line, = ax_positions.plot([], [], 'r-', lw=1)
     
     ax_positions.set_xlabel("X Position (pixels)")
     ax_positions.set_ylabel("Y Position (pixels)")
@@ -296,6 +283,7 @@ def start_camera_processing():
     ax_positions.legend()
     ax_positions.grid(True)
 
+    # Setup for deflection plot
     deflection_plot, = ax_deflection.plot([], [], 'mo-', label='Deflection (ΔY)') # Magenta
     ax_deflection.set_title("Vertical Deflection per Marker")
     ax_deflection.set_xlabel("Marker Index")
@@ -305,10 +293,12 @@ def start_camera_processing():
     ax_deflection.grid(True)
     fig_positions.tight_layout()
 
+    # Setup for moment and shear plot
     fig_beam_analysis, (ax_moment, ax_shear) = plt.subplots(2, 1, figsize=(8, 7))
-    moment_fit_plot, = ax_moment.plot([], [], 'g-', label='Moment (from Fit)')
-    shear_fit_plot, = ax_shear.plot([], [], 'c-', label='Shear (from Fit)')
+    moment_fit_plot, = ax_moment.plot([], [], 'g-', label='Bending Moment')
+    shear_fit_plot, = ax_shear.plot([], [], 'c-', label='Shear Force')
     
+    # Add gray 'zero-line'
     for ax_bm in [ax_moment, ax_shear]:
         ax_bm.axhline(0, color='gray', linestyle='--')
         ax_bm.legend()
@@ -340,7 +330,7 @@ def start_camera_processing():
                 break
             if key_state['c_pressed']:
                 key_state['c_pressed'] = False # Reset flag
-                calibration_info["active"] = True # Indicate calibration mode is active for 1 frame
+                calibration_info["active"] = True # Activate calibration mode
                 print("Calibration mode activated. Ensure markers are in reference position.")
             if key_state['space_pressed']:
                 key_state['space_pressed'] = False
@@ -349,7 +339,7 @@ def start_camera_processing():
                     print(f"Locked {len(locked_positions)} positions: {locked_positions}")
                     # Clear previous deflections
                     deflections_mm.clear() 
-                    ax_deflection.set_ylim(-10, 10) # Reset y-limit for deflection or make dynamic
+                    ax_deflection.set_ylim(-10, 10) # Reset y-limit for deflection
                 else:
                     print("Space pressed, but no circles detected to lock.")
 
@@ -378,8 +368,6 @@ def start_camera_processing():
             locked_scatter.set_offsets(np.empty((0, 2)))
             locked_line.set_data([],[])
             
-        # Removed the entire redundant and error-prone block that was here.
-
         # --- Calculate and Plot Deflections ---
         if pixel_scale != 1.0 and locked_positions and len(current_circles) == len(locked_positions):
             deflections_mm = [(curr[1] - ref[1]) * pixel_scale for curr, ref in zip(current_circles, locked_positions)]
@@ -393,7 +381,7 @@ def start_camera_processing():
         else:
             deflection_plot.set_data([],[])
 
-# --- Beam Analysis (Moment and Shear) ---
+        # --- Beam Analysis (Moment and Shear) ---
         # Ensure we have enough data points (at least 4 for this derivative-based method)
         # and that calibration has been done (pixel_scale is not its default 1.0)
         if pixel_scale != 1.0 and locked_positions and len(deflections_mm) >= 4:
@@ -413,14 +401,14 @@ def start_camera_processing():
                 dx = np.diff(x_coords_mm)
                 if np.any(dx == 0):
                     raise ValueError("Zero difference in x-coordinates found; cannot calculate slopes reliably.")
-                
+                 
                 if len(y_coords_mm) < 2:
                      raise ValueError("Not enough data points for derivative analysis (dy calculation).")
                 dy = np.diff(y_coords_mm)
                 slopes = dy / dx
                 print(f"Calculated slopes: {slopes}")
 
-                SLOPE_STD_DEV_THRESHOLD = 0.001 # Example value
+                SLOPE_STD_DEV_THRESHOLD = 0.001 # THIS ONE WE SHOULD CHANGE (PROLLY HIGHER)
                 print(f"Slope STD DEV Threshold: {SLOPE_STD_DEV_THRESHOLD}")
 
                 force_dot_index = len(locked_positions) - 1
@@ -490,7 +478,8 @@ def start_camera_processing():
                     ax_moment.set_xlim(np.min(x_coords_mm) - 5, np.max(x_coords_mm) + 5)
                     ax_shear.set_xlim(np.min(x_coords_mm) - 5, np.max(x_coords_mm) + 5)
                 print("--- Beam Analysis End ---")
-
+                            
+            # --- Error Handling Beam Analysis ---
             except RuntimeError as e_curvefit:
                 print(f"Curve fitting failed for beam analysis: {e_curvefit}")
                 moment_fit_plot.set_data([],[])
@@ -512,17 +501,8 @@ def start_camera_processing():
                 ax_moment.set_ylim(-1, 1)
                 ax_shear.set_ylim(-1, 1)
                 print("--- Beam Analysis Error (Exception) ---")
-        else: 
-            if not (pixel_scale != 1.0):
-                # This message will show only once if calibration never happens or is reset.
-                # Consider moving this specific print to where calibration_info['active'] is handled
-                # if you want it less frequently.
-                # For now, it's fine here to indicate why analysis might be skipped.
-                # print("Beam analysis skipped: Calibration not performed (pixel_scale is default).")
-                pass
-            if not (locked_positions and len(deflections_mm) >= 4):
-                # print("Beam analysis skipped: Not enough locked positions or deflection data points.")
-                pass
+        else:
+            pass
             
             moment_fit_plot.set_data([],[])
             shear_fit_plot.set_data([],[])
@@ -541,7 +521,8 @@ def start_camera_processing():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             calibration_info["counter"] -= 1
 
-        cv2.imshow("Live Webcam Feed (Cropped) - Press 'q' to quit", cropped_frame)
+        # Show Video Feed with Circle Detection
+        cv2.imshow("Live Webcam Feed - Press 'q' to quit", cropped_frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'): # Fallback if pynput fails or for direct q
              break
@@ -558,6 +539,7 @@ def start_camera_processing():
 root = tk.Tk()
 root.title("Beam Deflection Analyzer - Setup")
 
+# Camera Selection
 tk.Label(root, text="1. Select Camera:", font=('Helvetica', 10, 'bold')).pack(pady=(10,0), anchor='w', padx=10)
 available_cameras = detect_cameras()
 if platform.system() == "Darwin" and not shutil.which("ffmpeg"):
@@ -571,7 +553,10 @@ else:
     camera_listbox.insert(tk.END, "No cameras detected.")
     camera_listbox.config(state=tk.DISABLED)
 camera_listbox.pack(padx=10, pady=5, fill=tk.X)
+if available_cameras: # Select first camera by default
+    camera_listbox.select_set(0)
 
+# Beam Selection
 tk.Label(root, text="2. Select Beam Profile:", font=('Helvetica', 10, 'bold')).pack(pady=(10,0), anchor='w', padx=10)
 beam_listbox = tk.Listbox(root, height=len(BEAM_LIST_NAMES), width=60, exportselection=False)
 for beam_name in BEAM_LIST_NAMES:
@@ -580,6 +565,7 @@ beam_listbox.pack(padx=10, pady=5, fill=tk.X)
 if BEAM_LIST_NAMES: # Select first beam by default
     beam_listbox.select_set(0)
 
+# Instruction Text
 tk.Label(root, text="Instructions:", font=('Helvetica', 10, 'bold')).pack(pady=(10,0), anchor='w', padx=10)
 instructions_text = (
     "- Press 'c' to initiate calibration (ensure markers are at known distance).\n"
@@ -588,6 +574,7 @@ instructions_text = (
 )
 tk.Label(root, text=instructions_text, justify=tk.LEFT).pack(padx=10, pady=5, anchor='w')
 
+# "Start Analysis" Button Starts the Analysis Program
 start_button = tk.Button(root, text="Start Analysis", command=start_camera_processing, font=('Helvetica', 12, 'bold'), bg='lightblue')
 start_button.pack(pady=20, padx=10, fill=tk.X)
 
