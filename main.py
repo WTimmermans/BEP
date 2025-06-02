@@ -270,7 +270,7 @@ def start_camera_processing():
     # --- Plotting Setup ---
     plt.ion()
     # Setup for circle position plot
-    fig_positions, (ax_positions, ax_deflection) = plt.subplots(1, 2, figsize=(12, 6))
+    fig_positions, (ax_positions, ax_deflection) = plt.subplots(2, 1, figsize=(8, 7))
     live_scatter = ax_positions.scatter([], [], label='Live Markers')
     locked_scatter = ax_positions.scatter([], [], c='red', marker='x', label='Locked Markers')
     live_line, = ax_positions.plot([], [], 'b-', lw=1)
@@ -408,7 +408,7 @@ def start_camera_processing():
                 slopes = dy / dx
                 print(f"Calculated slopes: {slopes}")
 
-                SLOPE_STD_DEV_THRESHOLD = 0.001 # THIS ONE WE SHOULD CHANGE (PROLLY HIGHER)
+                SLOPE_STD_DEV_THRESHOLD = 0.005 # THIS ONE WE SHOULD CHANGE (PROLLY HIGHER)
                 print(f"Slope STD DEV Threshold: {SLOPE_STD_DEV_THRESHOLD}")
 
                 force_dot_index = len(locked_positions) - 1
