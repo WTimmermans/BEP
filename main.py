@@ -9,12 +9,13 @@ calculated.
 Adjust parameters within 'HOUGH_CIRCLES_PARAMS' to match markers and (lighting) situation.
 
 Created by Steffen Scheelings and Wouter Timmermans for BEP at TU Delft 2025
+MODIFIED: To use interactive plot clicking for force location selection.
 """
 
 # Import relevant modules
 import cv2
 import numpy as np
-import platform
+import platform 
 import tkinter as tk
 from tkinter import messagebox
 from cameradetect import detect_cameras
@@ -266,11 +267,37 @@ def start_camera_processing():
     if not cap.isOpened():
         messagebox.showerror("Error", f"Cannot open camera index {cam_hw_index}.")
         return    
-    
+
+    # --- ADDED: State variables for interactive force selection ---
+    clicked_force_position_mm = None
+    force_location_line = None
+
+    # --- ADDED: Click handler function defined inside to have access to axes ---
+    def on_plot_click(event):
+        """Callback to handle mouse clicks on the deflection plot."""
+        nonlocal clicked_force_position_mm, force_location_line
+        # Check if the click was on the deflection axes
+        if event.inaxes == ax_deflection:
+            clicked_force_position_mm = event.xdata
+            print(f"Force location manually set to x = {clicked_force_position_mm:.2f} mm")
+            
+            # Add or update a vertical line to mark the selected force position
+            if force_location_line:
+                force_location_line.set_xdata([clicked_force_position_mm])
+            else:
+                force_location_line = ax_deflection.axvline(x=clicked_force_position_mm, color='r', linestyle='--', label='Force Location')
+                ax_deflection.legend() # Redraw legend to include new item
+            fig_positions.canvas.draw_idle()
+
+
     # --- Plotting Setup ---
     plt.ion()
     # Setup for circle position plot
     fig_positions, (ax_positions, ax_deflection) = plt.subplots(2, 1, figsize=(8, 7))
+
+    # --- ADDED: Connect the click event to the handler ---
+    fig_positions.canvas.mpl_connect('button_press_event', on_plot_click)
+
     live_scatter = ax_positions.scatter([], [], label='Live Markers')
     locked_scatter = ax_positions.scatter([], [], c='red', marker='x', label='Locked Markers')
     live_line, = ax_positions.plot([], [], 'b-', lw=1)
@@ -284,16 +311,13 @@ def start_camera_processing():
     ax_positions.grid(True)
 
     # Setup for deflection plot
-    # Measured deflections will be magenta circles and line
     deflection_plot, = ax_deflection.plot([], [], 'mo-', label='Deflection (ΔY Measured)') 
-    # ADDED: Line for fitted deflection data (green dashed line)
     fitted_deflection_plot, = ax_deflection.plot([], [], 'g--', label='Deflection (Fitted Theory)')
-    ax_deflection.set_title("Vertical Deflection per Marker")
-    # CHANGED: X-axis label to reflect physical distance
+    ax_deflection.set_title("Vertical Deflection per Marker (Click to Set Force Location)")
     ax_deflection.set_xlabel("Position along beam (mm)")
     ax_deflection.set_ylabel("ΔY (mm)")
     ax_deflection.axhline(0, color='gray', linestyle='--', lw=1)
-    ax_deflection.legend() # Will now include both labels
+    ax_deflection.legend() 
     ax_deflection.grid(True)
     fig_positions.tight_layout()
 
@@ -302,14 +326,13 @@ def start_camera_processing():
     moment_fit_plot, = ax_moment.plot([], [], 'g-', label='Bending Moment')
     shear_fit_plot, = ax_shear.plot([], [], 'c-', label='Shear Force')
     
-    # Add gray 'zero-line'
     for ax_bm in [ax_moment, ax_shear]:
         ax_bm.axhline(0, color='gray', linestyle='--')
         ax_bm.legend()
         ax_bm.grid(True)
         
     ax_moment.set_title("Bending Moment Diagram")
-    ax_moment.set_ylabel("Moment (N·m)") # Using Nm
+    ax_moment.set_ylabel("Moment (N·m)")
     ax_shear.set_title("Shear Force Diagram")
     ax_shear.set_ylabel("Shear Force (N)")    
     ax_shear.set_xlabel("Position along beam (mm)")
@@ -317,7 +340,6 @@ def start_camera_processing():
     plt.show(block=False)
 
     # --- Main Processing Loop ---
-    # To store current iteration's calculated x_coords_mm and deflections_mm for plotting
     current_x_coords_mm_for_plot = np.array([])
     current_deflections_mm_for_plot = np.array([])
 
@@ -327,36 +349,34 @@ def start_camera_processing():
             print("Failed to grab frame.")
             break
         
-        # Crop frame to region of interest
         cropped_frame = frame[FRAME_CROP_Y_START:FRAME_CROP_Y_END, FRAME_CROP_X_START:FRAME_CROP_X_END]
         
-        current_circles = detect_circles_in_frame(cropped_frame) # circles are (x,y,r) in cropped_frame coordinates
+        current_circles = detect_circles_in_frame(cropped_frame)
 
         # --- Handle Keyboard Input ---
         with key_lock:
             if key_state['q_pressed']:
                 break
             if key_state['c_pressed']:
-                key_state['c_pressed'] = False # Reset flag
-                calibration_info["active"] = True # Activate calibration mode
+                key_state['c_pressed'] = False 
+                calibration_info["active"] = True
                 print("Calibration mode activated. Ensure markers are in reference position.")
             if key_state['space_pressed']:
                 key_state['space_pressed'] = False
                 if current_circles:
                     locked_positions = [(c[0], c[1]) for c in current_circles]
                     print(f"Locked {len(locked_positions)} positions: {locked_positions}")
-                    # Clear previous deflections
                     deflections_mm.clear() 
-                    current_deflections_mm_for_plot = np.array([]) # Clear plot data
-                    current_x_coords_mm_for_plot = np.array([])  # Clear plot data
-                    ax_deflection.set_ylim(-10, 10) # Reset y-limit for deflection
+                    current_deflections_mm_for_plot = np.array([])
+                    current_x_coords_mm_for_plot = np.array([])
+                    ax_deflection.set_ylim(-10, 10) 
                 else:
                     print("Space pressed, but no circles detected to lock.")
 
         # --- Perform Calibration if Activated ---
         if calibration_info["active"]:
             perform_calibration(current_circles)
-            calibration_info["active"] = False # Deactivate after one attempt
+            calibration_info["active"] = False
 
         # --- Update Live Plot Data (Positions) ---
         if current_circles:
@@ -365,7 +385,7 @@ def start_camera_processing():
             live_scatter.set_offsets(np.c_[xs, ys])
             live_line.set_data(xs, ys)
             ax_positions.set_xlim(0, cropped_frame.shape[1])
-            ax_positions.set_ylim(cropped_frame.shape[0], 0) # Invert y-axis to match OpenCV coordinates
+            ax_positions.set_ylim(cropped_frame.shape[0], 0)
         else:
             live_scatter.set_offsets(np.empty((0,2)))
             live_line.set_data([], [])
@@ -379,233 +399,128 @@ def start_camera_processing():
             locked_line.set_data([],[])
             
         # --- Calculate and Plot Deflections ---
-        # MODIFIED: To use x_coords_mm for the x-axis of the deflection plot
-        # and to dynamically adjust y-limits.
         if pixel_scale != 1.0 and locked_positions and len(current_circles) == len(locked_positions):
-            # Calculate deflections and store in the global list
             deflections_mm.clear()
             for curr, ref in zip(current_circles, locked_positions):
                 deflections_mm.append((curr[1] - ref[1]) * pixel_scale)
             
-            current_deflections_mm_for_plot = np.array(deflections_mm) # For plotting this iteration
+            current_deflections_mm_for_plot = np.array(deflections_mm)
 
-            if locked_positions: # Ensure locked_positions is not empty
+            if locked_positions:
                  x_coords_pixels_locked = np.array([pos[0] for pos in locked_positions])
                  if x_coords_pixels_locked.size > 0:
                     current_x_coords_mm_for_plot = (x_coords_pixels_locked - x_coords_pixels_locked[0]) * pixel_scale
                     deflection_plot.set_data(current_x_coords_mm_for_plot, current_deflections_mm_for_plot)
                     
-                    # Dynamic X-limits for deflection plot
-                    min_x_plot = np.min(current_x_coords_mm_for_plot) - 10 # 10mm padding
+                    min_x_plot = np.min(current_x_coords_mm_for_plot) - 10
                     max_x_plot = np.max(current_x_coords_mm_for_plot) + 10
                     ax_deflection.set_xlim(min_x_plot, max_x_plot)
 
-                    # Initial Y-limits based on measured data only (will be updated if fit occurs)
                     if current_deflections_mm_for_plot.size > 0:
                         min_y_measured = np.min(current_deflections_mm_for_plot)
                         max_y_measured = np.max(current_deflections_mm_for_plot)
-                        padding = (max_y_measured - min_y_measured) * 0.1 + 5 # 10% or 5mm
-                        ax_deflection.set_ylim(max_y_measured + padding, min_y_measured - padding) # Inverted Y
+                        padding = (max_y_measured - min_y_measured) * 0.1 + 5
+                        ax_deflection.set_ylim(max_y_measured + padding, min_y_measured - padding)
                     else:
-                        ax_deflection.set_ylim(10, -10) # Default if no deflection data
-                 else: # Not enough data for x-coordinates
+                        ax_deflection.set_ylim(10, -10)
+                 else:
                     deflection_plot.set_data([],[])
                     current_x_coords_mm_for_plot = np.array([])
                     ax_deflection.set_ylim(10, -10) 
-            else: # No locked positions
+            else:
                 deflection_plot.set_data([],[])
                 current_deflections_mm_for_plot = np.array([])
                 current_x_coords_mm_for_plot = np.array([])
                 ax_deflection.set_ylim(10, -10) 
-        else: # Conditions for deflection calculation not met
+        else:
             deflection_plot.set_data([],[])
-            fitted_deflection_plot.set_data([], []) # Clear fitted plot too
+            fitted_deflection_plot.set_data([], [])
             current_deflections_mm_for_plot = np.array([])
             current_x_coords_mm_for_plot = np.array([])
             ax_deflection.set_ylim(10, -10)
 
-        # --- Beam Analysis (Moment and Shear) ---
-        # Ensure we have enough data points (at least 4 for this derivative-based method)
-        # and that calibration has been done (pixel_scale is not its default 1.0)
-        if pixel_scale != 1.0 and locked_positions and len(deflections_mm) >= 4:
+        # --- MODIFIED: Beam Analysis (Moment and Shear) ---
+        # This section now depends on the user clicking the plot to set the force location.
+        if (pixel_scale != 1.0 and 
+            locked_positions and 
+            len(deflections_mm) >= 4 and 
+            clicked_force_position_mm is not None): # ADDED check for click
             try:
-                # --- Stage 1: Detect Force Location using Derivative Analysis ---
-                print("\n--- Beam Analysis Start ---")
-                # Use the x_coords and y_coords calculated for the deflection plot
-                # These are already relative to the first marker and in mm.
+                print("\n--- Beam Analysis Start (Using Clicked Position) ---")
                 x_coords_mm_analysis = current_x_coords_mm_for_plot 
                 y_coords_mm_analysis = current_deflections_mm_for_plot
 
-                print(f"X Coords (mm) for Analysis: {x_coords_mm_analysis}")
-                print(f"Y Deflections (mm) for Analysis: {y_coords_mm_analysis}")
+                # --- Stage 1: Get Force Location from User Click ---
+                detected_pos_a_m = clicked_force_position_mm / 1000.0 # Convert mm to meters
+                print(f"Using user-defined force position 'a': {detected_pos_a_m:.4f} m")
 
-                if len(x_coords_mm_analysis) < 2:
-                    raise ValueError("Not enough data points for derivative analysis (dx calculation).")
-
-                dx = np.diff(x_coords_mm_analysis)
-                if np.any(dx <= 0): # Check for non-positive differences as well
-                    # Attempt to filter out non-increasing x-values if they cause issues
-                    valid_indices = np.where(np.concatenate(([True], dx > 0)))[0]
-                    if len(valid_indices) < 2:
-                        raise ValueError("Too few valid x-coordinates after filtering non-increasing values for slope calculation.")
-                    x_coords_mm_analysis = x_coords_mm_analysis[valid_indices]
-                    y_coords_mm_analysis = y_coords_mm_analysis[valid_indices]
-                    dx = np.diff(x_coords_mm_analysis)
-                    if np.any(dx <= 0): # If still an issue
-                         raise ValueError("Zero or negative difference in x-coordinates found; cannot calculate slopes reliably.")
-                 
-                if len(y_coords_mm_analysis) < 2: # Check after potential filtering
-                     raise ValueError("Not enough data points for derivative analysis (dy calculation).")
-                dy = np.diff(y_coords_mm_analysis)
-                slopes = dy / dx
-                print(f"Calculated slopes: {slopes}")
-
-                SLOPE_STD_DEV_THRESHOLD = 0.005 # THIS ONE WE SHOULD CHANGE (PROLLY HIGHER)
-                print(f"Slope STD DEV Threshold: {SLOPE_STD_DEV_THRESHOLD}")
-
-                force_dot_index = len(x_coords_mm_analysis) - 1 # Index in the potentially filtered analysis arrays
-                print(f"Initial force_dot_index (marker index for load 'a'): {force_dot_index}")
-
-                if len(slopes) >= 2:
-                    for i in range(len(slopes) - 2, -1, -1):
-                        slopes_in_linear_region = slopes[i:]
-                        current_std_dev = np.std(slopes_in_linear_region)
-                        print(f"  Checking slopes from index {i} to end: {slopes_in_linear_region}")
-                        print(f"  Std Dev of this region: {current_std_dev:.6f}")
-                        
-                        if current_std_dev > SLOPE_STD_DEV_THRESHOLD:
-                            force_dot_index = i + 1
-                            print(f"  Std Dev > Threshold. New force_dot_index: {force_dot_index} (marker {i+1} where load 'a' is applied)")
-                            break
-                        else:
-                            print("  Std Dev <= Threshold. Region considered linear. Continuing search for kink further left.")
-                    if not (current_std_dev > SLOPE_STD_DEV_THRESHOLD): 
-                        print(f"  Loop completed. All tested slope sub-regions were linear or only one region tested. Final force_dot_index: {force_dot_index}")
-                else:
-                    print("  Not enough slopes (less than 2) to perform iterative std dev check. Using default force_dot_index.")
-
-                print(f"Derivative Analysis Final: Force presumed at Marker index #{force_dot_index} (0-indexed in analysis array).")
-
-                # --- Stage 2: Fit for Force Magnitude using the Detected Location ---
-                x_m = x_coords_mm_analysis / 1000.0 # Convert to meters for theory function
-                y_m = y_coords_mm_analysis / 1000.0 # Convert to meters for theory function
-                
-                if not (0 <= force_dot_index < len(x_m)): # Boundary check for force_dot_index
-                    raise ValueError(f"Calculated force_dot_index {force_dot_index} is out of bounds for x_m array of length {len(x_m)}.")
-
-                detected_pos_a_m = x_m[force_dot_index]
-                print(f"Detected force position 'a': {detected_pos_a_m:.4f} m ({detected_pos_a_m * 1000:.1f} mm from fixed end)")
+                # --- Stage 2: Fit for Force Magnitude using the Clicked Location ---
+                x_m = x_coords_mm_analysis / 1000.0
+                y_m = y_coords_mm_analysis / 1000.0
                 
                 def deflection_model_known_a(x_fit_data, P_fit):
                     return general_cantilever_deflection_theory(x_fit_data, P_fit, detected_pos_a_m, EI_current_beam)
 
-                p0_guess_val = 1.0
-                if len(y_m) > 0 and np.mean(y_m) < 0: # Check mean of deflections for guess direction
-                    p0_guess_val = -1.0
-                print(f"Initial guess for P_fit: {p0_guess_val}")
+                p0_guess_val = -1.0 if len(y_m) > 0 and np.mean(y_m) < 0 else 1.0
+                #print(f"Initial guess for P_fit: {p0_guess_val}")
 
                 popt, pcov = curve_fit(deflection_model_known_a, x_m, y_m, p0=[p0_guess_val])
                 fitted_load_P = popt[0]
-
                 print(f"Fitted Load P: {fitted_load_P:.2f} N")
 
                 # --- Stage 2b: Calculate fitted deflection curve FOR PLOTTING ---
-                # Use the x_coords_mm_analysis for plotting, which matches the measured data's x-axis.
-                # The model expects x in meters, so we pass x_m (which is x_coords_mm_analysis/1000)
                 y_fit_values_m = deflection_model_known_a(x_m, fitted_load_P)
-                y_fit_values_mm = y_fit_values_m * 1000.0 # Convert back to mm for plotting
+                y_fit_values_mm = y_fit_values_m * 1000.0
 
                 fitted_deflection_plot.set_data(x_coords_mm_analysis, y_fit_values_mm)
 
-                # Update Y-limits of ax_deflection to include both measured and fitted data
+                # Update Y-limits to include both measured and fitted data
                 if current_deflections_mm_for_plot.size > 0 and y_fit_values_mm.size > 0:
                     all_y_data = np.concatenate((current_deflections_mm_for_plot, y_fit_values_mm))
-                    min_y_combined = np.min(all_y_data)
-                    max_y_combined = np.max(all_y_data)
-                    padding_y_combined = (max_y_combined - min_y_combined) * 0.1 + 5 # 5mm or 10%
-                    ax_deflection.set_ylim(max_y_combined + padding_y_combined, min_y_combined - padding_y_combined) # Inverted
-                elif y_fit_values_mm.size > 0: # Only fitted data available (less likely)
-                    min_y_fit = np.min(y_fit_values_mm)
-                    max_y_fit = np.max(y_fit_values_mm)
-                    padding_y_fit = (max_y_fit - min_y_fit) * 0.1 + 5
-                    ax_deflection.set_ylim(max_y_fit + padding_y_fit, min_y_fit - padding_y_fit) # Inverted
-
+                    min_y_combined, max_y_combined = np.min(all_y_data), np.max(all_y_data)
+                    padding_y_combined = (max_y_combined - min_y_combined) * 0.1 + 5
+                    ax_deflection.set_ylim(max_y_combined + padding_y_combined, min_y_combined - padding_y_combined)
 
                 # --- Stage 3: Calculate Moment and Shear ---
                 moment_Nm_fit = np.piecewise(x_m, 
                                             [x_m <= detected_pos_a_m, x_m > detected_pos_a_m], 
-                                            [lambda x_val: -fitted_load_P * (detected_pos_a_m - x_val), 
-                                             0.0])
+                                            [lambda x_val: -fitted_load_P * (detected_pos_a_m - x_val), 0.0])
                 
                 shear_N_fit = np.piecewise(x_m, 
                                           [x_m < detected_pos_a_m, x_m >= detected_pos_a_m], 
-                                          [-fitted_load_P, 
-                                           0.0])
+                                          [-fitted_load_P, 0.0])
 
                 moment_fit_plot.set_data(x_coords_mm_analysis, moment_Nm_fit)
                 shear_fit_plot.set_data(x_coords_mm_analysis, shear_N_fit)
 
-                ax_moment.set_ylim(min(moment_Nm_fit)*1.2 -1, max(moment_Nm_fit)*1.2 +1 ) # Dynamic
-                ax_shear.set_ylim(min(shear_N_fit)*1.2 -1, max(shear_N_fit)*1.2 +1 )   # Dynamic
+                ax_moment.set_ylim(min(moment_Nm_fit)*1.2 -1, max(moment_Nm_fit)*1.2 +1 )
+                ax_shear.set_ylim(min(shear_N_fit)*1.2 -1, max(shear_N_fit)*1.2 +1 )   
                 
                 if x_coords_mm_analysis.size > 0:
                     ax_moment.set_xlim(np.min(x_coords_mm_analysis) - 5, np.max(x_coords_mm_analysis) + 5)
                     ax_shear.set_xlim(np.min(x_coords_mm_analysis) - 5, np.max(x_coords_mm_analysis) + 5)
                 print("--- Beam Analysis End ---")
                             
-            except RuntimeError as e_curvefit:
-                print(f"Curve fitting failed for beam analysis: {e_curvefit}")
-                moment_fit_plot.set_data([],[])
-                shear_fit_plot.set_data([],[])
-                fitted_deflection_plot.set_data([], []) # Clear fitted deflection on error
-                ax_moment.set_ylim(-1, 1)
-                ax_shear.set_ylim(-1, 1)
-                 # Reset y-lim for deflection plot if fit fails, to show only measured data
-                if current_deflections_mm_for_plot.size > 0:
-                    min_y_measured = np.min(current_deflections_mm_for_plot)
-                    max_y_measured = np.max(current_deflections_mm_for_plot)
-                    padding = (max_y_measured - min_y_measured) * 0.1 + 5
-                    ax_deflection.set_ylim(max_y_measured + padding, min_y_measured - padding)
-                else:
-                    ax_deflection.set_ylim(10,-10)
-                print("--- Beam Analysis Error (RuntimeError) ---")
-            except ValueError as e_val:
-                 print(f"Data validation error in beam analysis: {e_val}")
-                 moment_fit_plot.set_data([],[])
-                 shear_fit_plot.set_data([],[])
-                 fitted_deflection_plot.set_data([], []) # Clear fitted deflection on error
-                 ax_moment.set_ylim(-1, 1)
-                 ax_shear.set_ylim(-1, 1)
-                 if current_deflections_mm_for_plot.size > 0:
-                    min_y_measured = np.min(current_deflections_mm_for_plot)
-                    max_y_measured = np.max(current_deflections_mm_for_plot)
-                    padding = (max_y_measured - min_y_measured) * 0.1 + 5
-                    ax_deflection.set_ylim(max_y_measured + padding, min_y_measured - padding)
-                 else:
-                    ax_deflection.set_ylim(10,-10)
-                 print("--- Beam Analysis Error (ValueError) ---")
             except Exception as e:
                 print(f"Error in beam analysis: {e}")
                 moment_fit_plot.set_data([],[])
                 shear_fit_plot.set_data([],[])
-                fitted_deflection_plot.set_data([], []) # Clear fitted deflection on error
+                fitted_deflection_plot.set_data([], [])
                 ax_moment.set_ylim(-1, 1)
                 ax_shear.set_ylim(-1, 1)
-                if current_deflections_mm_for_plot.size > 0:
-                    min_y_measured = np.min(current_deflections_mm_for_plot)
-                    max_y_measured = np.max(current_deflections_mm_for_plot)
-                    padding = (max_y_measured - min_y_measured) * 0.1 + 5
-                    ax_deflection.set_ylim(max_y_measured + padding, min_y_measured - padding)
-                else:
-                    ax_deflection.set_ylim(10,-10)
-                print("--- Beam Analysis Error (Exception) ---")
-        else: # Conditions for beam analysis not met
+                print("--- Beam Analysis Error ---")
+        else: 
+            # Clear analysis plots if conditions aren't met
             moment_fit_plot.set_data([],[])
             shear_fit_plot.set_data([],[])
-            fitted_deflection_plot.set_data([], []) # Clear fitted plot if analysis is skipped
+            fitted_deflection_plot.set_data([], [])
             ax_moment.set_ylim(-1, 1)
             ax_shear.set_ylim(-1, 1)
-            # Y-limits for ax_deflection would have been set by the "Calculate and Plot Deflections" section
+            # If waiting for click, print a status message
+            if (pixel_scale != 1.0 and locked_positions and clicked_force_position_mm is None):
+                if calibration_info["counter"] <= 0: # Avoid spamming console
+                    print("Analysis waiting: Click on the deflection plot to set force location.", end='\r')
+
 
         # --- Update Figure Canvases ---
         try:
@@ -626,7 +541,7 @@ def start_camera_processing():
         # Show Video Feed with Circle Detection
         cv2.imshow("Live Webcam Feed - Press 'q' to quit", cropped_frame)
         
-        if cv2.waitKey(1) & 0xFF == ord('q'): # Fallback if pynput fails or for direct q
+        if cv2.waitKey(1) & 0xFF == ord('q'):
              break
   
     # --- Cleanup ---
@@ -641,7 +556,6 @@ def start_camera_processing():
     print("Camera and plots closed.")
 
 # --- Tkinter GUI Setup ---
-# (Rest of your Tkinter GUI setup code remains the same)
 root = tk.Tk()
 root.title("Beam Deflection Analyzer - Setup")
 
@@ -659,7 +573,7 @@ else:
     camera_listbox.insert(tk.END, "No cameras detected.")
     camera_listbox.config(state=tk.DISABLED)
 camera_listbox.pack(padx=10, pady=5, fill=tk.X)
-if available_cameras: # Select first camera by default
+if available_cameras:
     camera_listbox.select_set(0)
 
 # Beam Selection
@@ -668,23 +582,24 @@ beam_listbox = tk.Listbox(root, height=len(BEAM_LIST_NAMES), width=60, exportsel
 for beam_name in BEAM_LIST_NAMES:
     beam_listbox.insert(tk.END, beam_name)
 beam_listbox.pack(padx=10, pady=5, fill=tk.X)
-if BEAM_LIST_NAMES: # Select first beam by default
+if BEAM_LIST_NAMES:
     beam_listbox.select_set(0)
 
-# Instruction Text
+# MODIFIED: Instruction Text
 tk.Label(root, text="Instructions:", font=('Helvetica', 10, 'bold')).pack(pady=(10,0), anchor='w', padx=10)
 instructions_text = (
-    "- Press 'c' to initiate calibration (ensure markers are at known distance).\n"
+    "- Press 'c' to initiate calibration (markers at known distance).\n"
     "- Press 'SPACE' to lock current marker positions as reference.\n"
+    "- After locking, CLICK on the deflection plot to set the force location.\n"
     "- Press 'q' in the feed window or GUI to quit."
 )
 tk.Label(root, text=instructions_text, justify=tk.LEFT).pack(padx=10, pady=5, anchor='w')
 
-# "Start Analysis" Button Starts the Analysis Program
+# "Start Analysis" Button
 start_button = tk.Button(root, text="Start Analysis", command=start_camera_processing, font=('Helvetica', 12, 'bold'), bg='lightblue')
 start_button.pack(pady=20, padx=10, fill=tk.X)
 
-# Start keyboard listener thread (daemon so it exits with main)
+# Start keyboard listener thread
 kbd_listener_thread = Thread(target=key_listener_thread, daemon=True)
 kbd_listener_thread.start()
 
