@@ -73,7 +73,7 @@ BEAM_PROPERTIES = [
         "params": {"R": 6e-3, "r": 5e-3} # R=External radius, r=Internal radius
     },
     {
-        "name": "Solid round steel",
+        "name": "Solid Round Steel",
         "E": 200e9,
         "I_func": lambda R, **kwargs: (np.pi/4)*R**4,
         "params": {"R": 4e-3} # R=Radius
