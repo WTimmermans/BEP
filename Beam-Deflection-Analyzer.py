@@ -278,14 +278,14 @@ def start_camera_processing():
         nonlocal clicked_force_position_mm, force_location_line
         # Check if the click was on the deflection axes
         if event.inaxes == ax_deflection:
-            clicked_force_position_mm = event.xdata
+            clicked_force_position_mm = event.xdata + 50
             print(f"Force location manually set to x = {clicked_force_position_mm:.2f} mm")
             
             # Add or update a vertical line to mark the selected force position
             if force_location_line:
-                force_location_line.set_xdata([clicked_force_position_mm])
+                force_location_line.set_xdata([clicked_force_position_mm-50])
             else:
-                force_location_line = ax_deflection.axvline(x=clicked_force_position_mm, color='r', linestyle='--', label='Force Location')
+                force_location_line = ax_deflection.axvline(x=clicked_force_position_mm-50, color='r', linestyle='--', label='Force Location')
                 ax_deflection.legend() # Redraw legend to include new item
             fig_positions.canvas.draw_idle()
 
