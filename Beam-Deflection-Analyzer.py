@@ -27,17 +27,17 @@ from scipy.optimize import curve_fit
 
 # --- Configuration Constants ---
 KNOWN_DISTANCE_MM = 500.0   # Known distance for calibration in mm
-FRAME_CROP_Y_START = 300    # Crop frame to eliminate ambient noise
-FRAME_CROP_Y_END = 570
-FRAME_CROP_X_START = 0
-FRAME_CROP_X_END = 1080
+FRAME_CROP_Y_START = 350    # Crop frame to eliminate ambient noise
+FRAME_CROP_Y_END = 500
+FRAME_CROP_X_START = 100
+FRAME_CROP_X_END = 980
 
 # --- HoughCircles parameters ---
 HOUGH_CIRCLES_PARAMS = {
     'dp': 1.2,         # Inverse ratio of resolution
     'minDist': 50,     # Minimum distance between detected centres
-    'param1': 300,     # Upper threshold for Canny edge detector (Circle contrast)
-    'param2': 23,      # Threshold for center detection (Circle "perfectness")
+    'param1': 200,     # Upper threshold for Canny edge detector (Circle contrast)
+    'param2': 17,      # Threshold for center detection (Circle "perfectness")
     'minRadius': 1,    # Minimum circle radius
     'maxRadius': 10    # Maximum circle radius
 }
